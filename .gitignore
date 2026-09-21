@@ -1,0 +1,9 @@
+node_modules/
+target/
+dist/
+.DS_Store
+*.log
+apps/desktop-mobile/src-tauri/gen/
+test-results/
+playwright-report/
+*.tsbuildinfo

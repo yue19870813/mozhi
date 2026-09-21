@@ -1,0 +1,93 @@
+{
+  "arch": "aarch64",
+  "git": {
+    "checks": [
+      "初始化 / 提交 / 推送 / 克隆 / 中文路径与二进制附件",
+      "fetch / 祖先检查 / 快进",
+      "离线分叉 / 无冲突三方合并 / 双亲提交 / 推送",
+      "拒绝非快进推送 / 正文冲突 / 保留祖先与双方内容 / 工作区不变"
+    ],
+    "elapsedMs": 242.627916,
+    "httpsEnabled": true,
+    "libgit2": "(1, 9, 7)"
+  },
+  "limitations": [
+    "热查询 25 次；短查询最多返回 50 条，不代表全量排序",
+    "Git 为本地 bare 仓库测试，HTTPS 真连接待验收",
+    "中文输入与图谱需系统 WebView / 真机验证"
+  ],
+  "os": "macos",
+  "profile": "release",
+  "schemaVersion": 1,
+  "search": {
+    "bytesPerNote": 5150,
+    "databaseBytes": 78995456,
+    "indexMs": 1014.4970419999999,
+    "measurements": [
+      {
+        "hits": 50,
+        "p50Ms": 131.01,
+        "p95Ms": 173.879333,
+        "query": "知",
+        "strategy": "bounded-literal-scan"
+      },
+      {
+        "hits": 50,
+        "p50Ms": 118.448292,
+        "p95Ms": 187.040666,
+        "query": "图谱",
+        "strategy": "bounded-literal-scan"
+      },
+      {
+        "hits": 50,
+        "p50Ms": 3.832,
+        "p95Ms": 5.2692499999999995,
+        "query": "知识图谱",
+        "strategy": "fts5-trigram"
+      },
+      {
+        "hits": 50,
+        "p50Ms": 36.234750000000005,
+        "p95Ms": 41.942375,
+        "query": "Markdown",
+        "strategy": "fts5-trigram"
+      },
+      {
+        "hits": 50,
+        "p50Ms": 3.671333,
+        "p95Ms": 4.030749999999999,
+        "query": "alpha-beta",
+        "strategy": "fts5-trigram"
+      },
+      {
+        "hits": 50,
+        "p50Ms": 43.150541000000004,
+        "p95Ms": 103.17474999999999,
+        "query": "预算、计划",
+        "strategy": "fts5-trigram"
+      },
+      {
+        "hits": 0,
+        "p50Ms": 0.027583,
+        "p95Ms": 0.088125,
+        "query": "不存在",
+        "strategy": "fts5-trigram"
+      },
+      {
+        "hits": 0,
+        "p50Ms": 166.18508300000002,
+        "p95Ms": 310.60404200000005,
+        "query": "%",
+        "strategy": "bounded-literal-scan"
+      },
+      {
+        "hits": 0,
+        "p50Ms": 0.015333999999999999,
+        "p95Ms": 0.092292,
+        "query": "\" OR *",
+        "strategy": "fts5-trigram"
+      }
+    ],
+    "notes": 10000
+  }
+}

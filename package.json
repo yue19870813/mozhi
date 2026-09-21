@@ -1,0 +1,12 @@
+{
+  "name": "mozhi", "private": true, "version": "0.1.0", "type": "module",
+  "workspaces": ["apps/desktop-mobile"],
+  "scripts": {
+    "dev": "npm run dev -w @mozhi/app",
+    "build": "npm run build -w @mozhi/app",
+    "test": "npm run test -w @mozhi/app",
+    "tauri": "npm run tauri -w @mozhi/app --",
+    "check": "npm run build && npm test && cargo test -p mozhi-core",
+    "probe": "cargo run --release -p mozhi-core --bin p0-probe --"
+  }
+}

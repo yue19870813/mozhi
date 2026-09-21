@@ -1,0 +1,93 @@
+{
+  "arch": "aarch64",
+  "git": {
+    "checks": [
+      "初始化 / 提交 / 推送 / 克隆 / 中文路径与二进制附件",
+      "fetch / 祖先检查 / 快进",
+      "离线分叉 / 无冲突三方合并 / 双亲提交 / 推送",
+      "拒绝非快进推送 / 正文冲突 / 保留祖先与双方内容 / 工作区不变"
+    ],
+    "elapsedMs": 81.824083,
+    "httpsEnabled": true,
+    "libgit2": "(1, 9, 7)"
+  },
+  "limitations": [
+    "查询最多返回 100 条；一字/二字使用补充索引，非冷启动测试",
+    "Git 为本地 bare 仓库测试，HTTPS 真连接待验收",
+    "中文输入与图谱需系统 WebView / 真机验证"
+  ],
+  "os": "macos",
+  "profile": "release",
+  "schemaVersion": 1,
+  "search": {
+    "bytesPerNote": 5150,
+    "databaseBytes": 239874048,
+    "indexMs": 7424.1444169999995,
+    "measurements": [
+      {
+        "hits": 100,
+        "p50Ms": 24.554834,
+        "p95Ms": 25.518666,
+        "query": "知",
+        "strategy": "short-term-index"
+      },
+      {
+        "hits": 100,
+        "p50Ms": 24.44925,
+        "p95Ms": 25.887957999999998,
+        "query": "图谱",
+        "strategy": "short-term-index"
+      },
+      {
+        "hits": 100,
+        "p50Ms": 0.31837499999999996,
+        "p95Ms": 0.41404199999999997,
+        "query": "知识图谱",
+        "strategy": "fts5-trigram"
+      },
+      {
+        "hits": 100,
+        "p50Ms": 30.295917,
+        "p95Ms": 34.228875,
+        "query": "Markdown",
+        "strategy": "fts5-trigram"
+      },
+      {
+        "hits": 100,
+        "p50Ms": 0.354542,
+        "p95Ms": 0.42925,
+        "query": "alpha-beta",
+        "strategy": "fts5-trigram"
+      },
+      {
+        "hits": 100,
+        "p50Ms": 29.305709,
+        "p95Ms": 30.381625,
+        "query": "预算、计划",
+        "strategy": "fts5-trigram"
+      },
+      {
+        "hits": 0,
+        "p50Ms": 0.015125,
+        "p95Ms": 0.0185,
+        "query": "不存在",
+        "strategy": "fts5-trigram"
+      },
+      {
+        "hits": 0,
+        "p50Ms": 23.257125,
+        "p95Ms": 23.897958,
+        "query": "%",
+        "strategy": "short-term-index"
+      },
+      {
+        "hits": 0,
+        "p50Ms": 23.256209,
+        "p95Ms": 23.94225,
+        "query": "\" OR *",
+        "strategy": "short-term-index"
+      }
+    ],
+    "notes": 10000
+  }
+}

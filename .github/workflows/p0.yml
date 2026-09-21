@@ -1,0 +1,31 @@
+name: macOS MVP validation
+on:
+  push:
+  pull_request:
+jobs:
+  macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+      - run: npm ci
+      - run: npm run build
+      - run: npm test
+      - run: cargo fmt --all --check
+      - run: cargo test --workspace --locked
+      - run: cargo clippy --workspace --all-targets --locked -- -D warnings
+      - run: npm run tauri -- build --bundles app
+      - run: cargo run --release -p mozhi-core --bin p0-probe -- 10000 > p0-report.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos-mvp
+          path: |
+            p0-report.json
+            target/release/bundle/macos/*.app

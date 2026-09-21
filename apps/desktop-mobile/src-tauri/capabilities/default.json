@@ -1,0 +1,5 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "main-window", "description": "仅主窗口使用核心 IPC；文件操作由 Rust 授权库服务处理。",
+  "windows": ["main"], "permissions": ["core:default", "core:window:allow-destroy"]
+}
