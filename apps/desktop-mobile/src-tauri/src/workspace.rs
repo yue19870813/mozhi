@@ -45,6 +45,9 @@ pub enum Request {
     Refresh,
     Fingerprint,
     Tree,
+    OpenDirectory {
+        path: String,
+    },
     Knowledge,
     Create {
         path: String,
@@ -114,6 +117,11 @@ pub async fn workspace(
                 Ok(json!(vault::hash(fingerprint.as_bytes())))
             },
             Request::Tree=>Ok(json!(operations::tree(&active.vault)?)),
+            Request::OpenDirectory{path}=>{
+                let directory=crate::file_manager::directory_for_entry(active.vault.root(),&path)?;
+                crate::file_manager::open_directory(&directory).map_err(failure)?;
+                Ok(Value::Null)
+            },
             Request::Knowledge=>Ok(json!(active.index.knowledge()?)),
             Request::Create{path,directory}=>{operations::create(&active.vault,&path,directory)?;refresh(active)},
             Request::Move{from,to}=>{let recovery_id=operations::move_entry(&active.vault,&from,&to)?;let vault=refresh(active)?;Ok(json!({"vault":vault,"recoveryId":recovery_id}))},

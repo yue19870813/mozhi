@@ -1,4 +1,5 @@
 mod credentials;
+mod file_manager;
 mod watcher;
 mod workspace;
 use mozhi_core::{

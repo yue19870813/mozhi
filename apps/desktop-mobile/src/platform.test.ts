@@ -2,7 +2,9 @@ import { expect, it } from 'vitest';
 import { EditorState } from '@codemirror/state';
 import { lineSeparator, platformLabels } from './platform';
 it('displays the correct desktop shortcut and credential store', () => {
-  expect(platformLabels('Win32')).toEqual({ modifier: 'Ctrl', credentials: 'Windows 凭据管理器', desktop: 'Windows' });
+  expect(platformLabels('Win32')).toEqual({ modifier: 'Ctrl', credentials: 'Windows 凭据管理器', desktop: 'Windows', openDirectory: '在资源管理器中打开目录' });
+  expect(platformLabels('MacIntel').openDirectory).toBe('在访达中打开目录');
+  expect(platformLabels('Linux').openDirectory).toBe('在文件管理器中打开目录');
   expect(platformLabels('MacIntel').modifier).toBe('⌘');
   expect(platformLabels('Linux').credentials).toBe('系统凭据存储');
 });
