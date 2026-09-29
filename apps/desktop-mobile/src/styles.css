@@ -53,6 +53,8 @@ summary { cursor:pointer; }
 .tree-row:has(.tree-expander) .note-item { padding-left:4px; }
 .note-item.selected-directory,.vault-root.selected { color:var(--text); background:var(--selected); }
 .vault-root { width:100%; padding:9px 12px; margin:0 0 8px; text-align:left; background:transparent; border:0; color:var(--muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.vault-root button { display:block; width:100%; padding:0; border:0; background:transparent; color:inherit; text-align:left; }
+.vault-root button:hover { background:transparent; }
 .vault-root small { float:right; color:var(--muted); font-size:10px; }
 .tree-menu { opacity:1; }
 .file-actions { flex-wrap:wrap; }

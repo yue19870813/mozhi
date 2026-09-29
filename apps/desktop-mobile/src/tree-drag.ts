@@ -1,3 +1,9 @@
+export function dropFolderForEntry(entry: { path: string; isDirectory: boolean }): string {
+  if (entry.isDirectory) return entry.path;
+  const separator = entry.path.lastIndexOf('/');
+  return separator < 0 ? '' : entry.path.slice(0, separator);
+}
+
 export function treeMoveDestination(source: string, folder: string, paths: readonly string[]): string | null {
   if (!source || !paths.includes(source) || (folder && !paths.includes(folder))) return null;
   if (folder === source || folder.startsWith(`${source}/`)) return null;

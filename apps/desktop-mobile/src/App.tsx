@@ -13,7 +13,7 @@ import { GraphFilters, initialGraphFilters } from './GraphFilters';
 import { afterSave, moduleLabels, readEditorMode, readPreference, savePreference, type Module, type HomePage as HomeSection, type HelpPage, type SettingsPage } from './navigation';
 import { readRecent, writeRecent, visitRecent, moveRecent, pruneRecent, type RecentNote } from './recent';
 import { createPath, parentDirectory } from './create-path';
-import { treeMoveDestination } from './tree-drag';
+import { dropFolderForEntry, treeMoveDestination } from './tree-drag';
 const KnowledgeGraph=lazy(()=>import('./KnowledgeGraph').then(m=>({default:m.KnowledgeGraph})));
 const ProbeGraph=lazy(()=>import('./Graph').then(m=>({default:m.Graph})));
 
@@ -43,18 +43,19 @@ export default function App(){
   const [query,setQuery]=useState(''),[tag,setTag]=useState(''),[directory,setDirectory]=useState(''),[filenameOnly,setFilenameOnly]=useState(false),[results,setResults]=useState<SearchResult|null>(null);
   const [tree,setTree]=useState<TreeEntry[]>([]),[notes,setNotes]=useState<ParsedNote[]>([]),[revision,setRevision]=useState(0),[collapsed,setCollapsed]=useState<Set<string>>(new Set());
   const [selectedDirectory,setSelectedDirectory]=useState('');
-  const [dragSource,setDragSource]=useState(''),[dropTarget,setDropTarget]=useState<string|null>(null);
+  const [selectedTreePath,setSelectedTreePath]=useState('');
+  const [dragSource,setDragSource]=useState(''),[dropTarget,setDropTarget]=useState<string|null>(null),[dropTargetRow,setDropTargetRow]=useState<string|null>(null);
   const dragSourceRef=useRef('');
   const [history,setHistory]=useState<{id:string;message:string;timestamp:number}[]|null>(null),[historical,setHistorical]=useState<string|null>(null),[report,setReport]=useState<unknown>(null),[longSample,setLongSample]=useState('');
   const session=useRef<DocumentSession|null>(null),searchField=useRef<HTMLInputElement>(null),initialized=useRef(false),operation=useRef(false),isComposing=useRef(false),vaultRef=useRef<Vault|null>(null);
   const current=notes.find(n=>n.path===path), tags=[...new Set(notes.flatMap(n=>n.tags))].sort();
-  const updateKnowledge=useCallback(async()=>{if(!native)return;const id=vaultRef.current?.id;const [entries,parsed]=await Promise.all([workspace<TreeEntry[]>({action:'tree'}),workspace<ParsedNote[]>({action:'knowledge'})]);if(id===vaultRef.current?.id){setTree(entries);setSelectedDirectory(previous=>previous&&!entries.some(entry=>entry.isDirectory&&entry.path===previous)?'':previous);setNotes(parsed);setRevision(r=>r+1);const state=await workspace<{phase:string}>({action:'sync_state'});setSyncBlocked(state.phase==='conflict');}},[]);
+  const updateKnowledge=useCallback(async()=>{if(!native)return;const id=vaultRef.current?.id;const [entries,parsed]=await Promise.all([workspace<TreeEntry[]>({action:'tree'}),workspace<ParsedNote[]>({action:'knowledge'})]);if(id===vaultRef.current?.id){setTree(entries);setSelectedDirectory(previous=>previous&&!entries.some(entry=>entry.isDirectory&&entry.path===previous)?'':previous);setSelectedTreePath(previous=>previous&&!entries.some(entry=>entry.path===previous)?'':previous);setNotes(parsed);setRevision(r=>r+1);const state=await workspace<{phase:string}>({action:'sync_state'});setSyncBlocked(state.phase==='conflict');}},[]);
   const loadNote=useCallback(async(next:string)=>{
     const note=await api.read(next),draft=await api.readDraft(next);
     session.current=new DocumentSession(note,api.save,setError);setPath(next);setContent(note.content);setRecovery(draft!==null&&draft!==note.content?draft:null);setStatus(native?'已保存到本机':'浏览器内存演示');setHistory(null);setHistorical(null);return note;
   },[]);
   const adopt=useCallback(async(opened:Vault)=>{
-    selectVault(opened.id);vaultRef.current=opened;storeRecent(pruneRecent(readRecent(localStorage,opened.id),opened.entries.map(e=>e.path),opened.skipped),opened.id);setGraphFilters(initialGraphFilters);setGraphVisited(false);setRelationsOpen(false);setRecoveries([]);setSyncBlocked(false);setVault(opened);setQuery('');setTag('');setDirectory('');setSelectedDirectory('');session.current=null;setPath('');setContent('');setRecovery(null);setNotes([]);setTree([]);setCollapsed(new Set());
+    selectVault(opened.id);vaultRef.current=opened;storeRecent(pruneRecent(readRecent(localStorage,opened.id),opened.entries.map(e=>e.path),opened.skipped),opened.id);setGraphFilters(initialGraphFilters);setGraphVisited(false);setRelationsOpen(false);setRecoveries([]);setSyncBlocked(false);setVault(opened);setQuery('');setTag('');setDirectory('');setSelectedDirectory('');setSelectedTreePath('');session.current=null;setPath('');setContent('');setRecovery(null);setNotes([]);setTree([]);setCollapsed(new Set());
     const first=opened.entries.find(e=>e.path==='欢迎使用.md'&&!opened.skipped.includes(e.path))??opened.entries.find(e=>!opened.skipped.includes(e.path));
     if(first)await loadNote(first.path);else setStatus('此目录暂无笔记，点击新建笔记开始');
     await updateKnowledge();if(opened.skipped.length)setError(`未读取的笔记：${opened.skipped.join('、')}`);
@@ -130,17 +131,17 @@ export default function App(){
   function locate(next:string){setCollapsed(old=>new Set([...old].filter(folder=>!next.startsWith(`${folder}/`))));}
   async function navigate(next:string){await run(async()=>{
     const note=next===path&&session.current?session.current.note:await loadNote(next);
-    recordVisit(next,next===path?content:note.content);locate(next);setSelectedDirectory(parentDirectory(next));setModule('notes');sidebar.dismiss();
+    recordVisit(next,next===path?content:note.content);locate(next);setSelectedDirectory(parentDirectory(next));setSelectedTreePath(next);setModule('notes');sidebar.dismiss();
   });}
   function newNote(){setError('');setModal({kind:'note',source:'',parent:selectedDirectory,value:'新笔记'});}
   function newDirectory(){setError('');setModal({kind:'directory',source:'',parent:selectedDirectory,value:'新目录'});}
   async function openVault(){await run(async()=>{const opened=await api.openVault();if(opened){await adopt(opened);setModule('home');sidebar.dismiss();}});}
-  function clearDrag(){dragSourceRef.current='';setDragSource('');setDropTarget(null);}
-  function dragOverFolder(event:React.DragEvent,folder:string){
+  function clearDrag(){dragSourceRef.current='';setDragSource('');setDropTarget(null);setDropTargetRow(null);}
+  function dragOverFolder(event:React.DragEvent,folder:string,row:string|null=null){
     const source=dragSourceRef.current;
     const destination=source&&treeMoveDestination(source,folder,tree.map(entry=>entry.path));
-    if(!destination||busy||composing||syncBlocked){setDropTarget(null);return;}
-    event.preventDefault();event.dataTransfer.dropEffect='move';setDropTarget(folder);
+    if(!destination||busy||composing||syncBlocked){setDropTarget(null);setDropTargetRow(null);return;}
+    event.preventDefault();event.dataTransfer.dropEffect='move';setDropTarget(folder);setDropTargetRow(row);
   }
   async function dropIntoFolder(event:React.DragEvent,folder:string){
     event.preventDefault();event.stopPropagation();
@@ -156,6 +157,7 @@ export default function App(){
     const next=path===source||path.startsWith(`${source}/`)?`${destination}${path.slice(source.length)}`:path;
     await reload();if(next&&next!==path)await loadNote(next);
     setSelectedDirectory(folder);
+    setSelectedTreePath(destination);
     setCollapsed(old=>new Set([...old].filter(item=>!destination.startsWith(`${item}/`))));
     setQuery('');setTag('');setDirectory('');
   }
@@ -172,6 +174,7 @@ export default function App(){
         setVault(opened);await updateKnowledge();setQuery('');setTag('');setDirectory('');setCollapsed(old=>new Set([...old].filter(folder=>!destination.startsWith(`${folder}/`))));
         if(m.kind==='note'){const note=await loadNote(destination);recordVisit(destination,note.content);setSelectedDirectory(m.parent??'');}
         else setSelectedDirectory(destination);
+        setSelectedTreePath(destination);
         setModule('notes');sidebar.dismiss();
       }
       else if(m.kind==='move')await performMove(m.source,m.value,parentDirectory(m.value));
@@ -218,9 +221,9 @@ export default function App(){
     <div className="search-box"><span>⌕</span><input ref={searchField} aria-label="搜索笔记" placeholder="搜索 / tag:工作" value={query} onChange={e=>setQuery(e.target.value)}/><kbd>{platform.modifier} K</kbd></div>
     <details className="filter-disclosure"><summary>筛选条件</summary><div className="search-filters"><select aria-label="搜索标签" value={tag} onChange={e=>setTag(e.target.value)}><option value="">所有标签</option>{tags.map(t=><option key={t}>{t}</option>)}</select><select aria-label="搜索目录" value={directory} onChange={e=>setDirectory(e.target.value)}><option value="">所有目录</option>{tree.filter(e=>e.isDirectory).map(e=><option key={e.path}>{e.path}</option>)}</select><label><input type="checkbox" checked={filenameOnly} onChange={e=>setFilenameOnly(e.target.checked)}/>仅文件名</label></div></details>
     <div className="sidebar-label">{query||tag||directory?'搜索结果':'笔记库'}</div>
-    <button className={`vault-root ${selectedDirectory===''?'selected':''} ${dropTarget===''?'drop-target':''}`} disabled={busy||composing} onClick={()=>setSelectedDirectory('')} onDragOver={event=>dragOverFolder(event,'')} onDragLeave={()=>setDropTarget(null)} onDrop={event=>void dropIntoFolder(event,'')}>▱ {vault?.name??'正在加载…'} <small>根目录</small></button>
+    <div className={`vault-root ${selectedTreePath===''?'selected':''} ${dropTarget===''&&dropTargetRow===null?'drop-target':''}`} onDragOver={event=>dragOverFolder(event,'')} onDragLeave={event=>{if(!event.currentTarget.contains(event.relatedTarget as Node)){setDropTarget(null);setDropTargetRow(null);}}} onDrop={event=>void dropIntoFolder(event,'')}><button disabled={busy||composing} onClick={()=>{setSelectedDirectory('');setSelectedTreePath('');}}>▱ {vault?.name??'正在加载…'} <small>根目录</small></button></div>
     <div className="file-actions"><button disabled={busy||composing||!native} onClick={newNote}>＋笔记</button><button disabled={busy||composing||!native} onClick={newDirectory}>＋目录</button><button disabled={busy||composing||!native} onClick={()=>void run(reload)}>刷新</button></div>
-    <div className="note-list">{results?results.hits.map(entry=><button className="search-result" key={entry.path} disabled={busy||composing} onClick={()=>void navigate(entry.path)}><strong>{entry.title}</strong><small>{entry.path}</small><span>{entry.excerpt}</span></button>):visibleTree.map(entry=><div key={entry.path} className={`tree-row ${dragSource===entry.path?'dragging':''} ${dropTarget===entry.path?'drop-target':''}`} style={{paddingLeft:Math.min(entry.path.split('/').length-1,5)*10}} draggable={native&&!busy&&!composing&&!syncBlocked} onDragStart={event=>{if(!native||busy||composing||syncBlocked){event.preventDefault();return;}dragSourceRef.current=entry.path;setDragSource(entry.path);event.dataTransfer.effectAllowed='move';event.dataTransfer.setData('text/plain','mozhi-tree-entry');}} onDragEnd={clearDrag} onDragOver={event=>{if(entry.isDirectory)dragOverFolder(event,entry.path);else setDropTarget(null);}} onDragLeave={event=>{if(!event.currentTarget.contains(event.relatedTarget as Node))setDropTarget(null);}} onDrop={event=>{if(entry.isDirectory)void dropIntoFolder(event,entry.path);}}>{entry.isDirectory&&<button className="tree-expander" aria-label={`${collapsed.has(entry.path)?'展开':'折叠'} ${entry.path}`} disabled={busy||composing} onClick={()=>setCollapsed(old=>{const next=new Set(old);if(next.has(entry.path))next.delete(entry.path);else next.add(entry.path);return next;})}>{collapsed.has(entry.path)?'▸':'▾'}</button>}<button title={entry.path} disabled={busy||composing} aria-current={entry.isDirectory&&selectedDirectory===entry.path?'location':!entry.isDirectory&&entry.path===path?'page':undefined} className={`${entry.isDirectory&&selectedDirectory===entry.path?'note-item selected-directory':'note-item'} ${!entry.isDirectory&&entry.path===path?'selected':''}`} onClick={()=>{if(entry.isDirectory)setSelectedDirectory(entry.path);else if(entry.isAttachment)setModal({kind:'move',source:entry.path,value:entry.path});else void navigate(entry.path);}}><span>{entry.isDirectory?'▱':'▧'}</span><span>{entry.path.split('/').pop()?.replace(/\.md$/i,'')}</span></button><button className="tree-menu" aria-label={`管理 ${entry.path}`} disabled={busy||composing||!native} onClick={()=>setModal({kind:'move',source:entry.path,value:entry.path})}>⋯</button></div>)}{results?.hits.length===0&&<p className="empty-small">没有匹配的笔记</p>}</div>
+    <div className="note-list" onDragOver={event=>{if(event.target===event.currentTarget)dragOverFolder(event,'');}} onDrop={event=>{if(event.target===event.currentTarget)void dropIntoFolder(event,'');}}>{results?results.hits.map(entry=><button className="search-result" key={entry.path} disabled={busy||composing} onClick={()=>void navigate(entry.path)}><strong>{entry.title}</strong><small>{entry.path}</small><span>{entry.excerpt}</span></button>):visibleTree.map(entry=><div key={entry.path} className={`tree-row ${dragSource===entry.path?'dragging':''} ${dropTargetRow===entry.path?'drop-target':''}`} style={{paddingLeft:Math.min(entry.path.split('/').length-1,5)*10}} draggable={native&&!busy&&!composing&&!syncBlocked} onDragStart={event=>{if(!native||busy||composing||syncBlocked){event.preventDefault();return;}dragSourceRef.current=entry.path;setDragSource(entry.path);event.dataTransfer.effectAllowed='move';event.dataTransfer.setData('text/plain','mozhi-tree-entry');}} onDragEnd={clearDrag} onDragOver={event=>dragOverFolder(event,dropFolderForEntry(entry),entry.path)} onDragLeave={event=>{if(!event.currentTarget.contains(event.relatedTarget as Node)){setDropTarget(null);setDropTargetRow(null);}}} onDrop={event=>void dropIntoFolder(event,dropFolderForEntry(entry))}>{entry.isDirectory&&<button className="tree-expander" aria-label={`${collapsed.has(entry.path)?'展开':'折叠'} ${entry.path}`} disabled={busy||composing} onClick={()=>setCollapsed(old=>{const next=new Set(old);if(next.has(entry.path))next.delete(entry.path);else next.add(entry.path);return next;})}>{collapsed.has(entry.path)?'▸':'▾'}</button>}<button title={entry.path} disabled={busy||composing} aria-current={selectedTreePath===entry.path?(entry.isDirectory?'location':'page'):undefined} className={`${entry.isDirectory&&selectedTreePath===entry.path?'note-item selected-directory':'note-item'} ${!entry.isDirectory&&selectedTreePath===entry.path?'selected':''}`} onClick={()=>{if(entry.isDirectory){setSelectedDirectory(entry.path);setSelectedTreePath(entry.path);}else if(entry.isAttachment){setSelectedTreePath(entry.path);setModal({kind:'move',source:entry.path,value:entry.path});}else void navigate(entry.path);}}><span>{entry.isDirectory?'▱':'▧'}</span><span>{entry.path.split('/').pop()?.replace(/\.md$/i,'')}</span></button><button className="tree-menu" aria-label={`管理 ${entry.path}`} disabled={busy||composing||!native} onClick={()=>setModal({kind:'move',source:entry.path,value:entry.path})}>⋯</button></div>)}{results?.hits.length===0&&<p className="empty-small">没有匹配的笔记</p>}</div>
     {results&&<p className="search-meta">{results.hits.length} 条 · {results.elapsedMs.toFixed(1)} ms · 最多 100 条</p>}
     </div>
     <div className="module-sidebar-page" hidden={module!=='graph'}><h2>知识图谱</h2><GraphFilters value={graphFilters} onChange={setGraphFilters} current={path} tags={tags}/></div>
