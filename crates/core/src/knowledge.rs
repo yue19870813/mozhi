@@ -4,7 +4,7 @@ use crate::{
     Result,
 };
 use serde::{Deserialize, Serialize};
-use std::collections::{BTreeSet, VecDeque};
+use std::collections::{BTreeMap, BTreeSet, VecDeque};
 #[derive(Clone, Default, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct GraphQuery {
@@ -21,6 +21,7 @@ pub struct Graph {
     pub nodes: Vec<ParsedNote>,
     pub edges: Vec<Edge>,
     pub truncated: bool,
+    pub incoming_counts: BTreeMap<String, usize>,
 }
 #[derive(Serialize)]
 pub struct Edge {
@@ -39,6 +40,22 @@ pub fn scan(vault: &Vault) -> Result<Vec<ParsedNote>> {
     Ok(notes)
 }
 pub fn graph(notes: &[ParsedNote], query: &GraphQuery) -> Graph {
+    // Count distinct referring notes across the whole vault before filtering or
+    // truncating the visible graph. Repeated links do not inflate node sizes.
+    let existing: BTreeSet<_> = notes.iter().map(|note| note.path.as_str()).collect();
+    let mut incoming: BTreeMap<&str, BTreeSet<&str>> = BTreeMap::new();
+    for note in notes {
+        for reference in &note.references {
+            if reference.image {
+                continue;
+            }
+            if let Some(target) = reference.target.as_deref() {
+                if target != note.path && existing.contains(target) {
+                    incoming.entry(target).or_default().insert(&note.path);
+                }
+            }
+        }
+    }
     let allowed: BTreeSet<_> = notes
         .iter()
         .filter(|n| {
@@ -102,6 +119,15 @@ pub fn graph(notes: &[ParsedNote], query: &GraphQuery) -> Graph {
         || (query.center.is_some() && visible.len() >= 200)
         || pairs.len() > 3000;
     visible = visible.into_iter().take(1000).collect();
+    let incoming_counts = visible
+        .iter()
+        .map(|path| {
+            (
+                path.clone(),
+                incoming.get(path.as_str()).map_or(0, BTreeSet::len),
+            )
+        })
+        .collect();
     let nodes = notes
         .iter()
         .filter(|n| visible.contains(&n.path))
@@ -121,5 +147,6 @@ pub fn graph(notes: &[ParsedNote], query: &GraphQuery) -> Graph {
         nodes,
         edges,
         truncated,
+        incoming_counts,
     }
 }
