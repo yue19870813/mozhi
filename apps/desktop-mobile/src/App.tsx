@@ -253,8 +253,30 @@ export default function App(){
     {syncBlocked&&<div className="notice"><span>此库有待处理的 Git 冲突，编辑暂时只读。</span><button disabled={busy||composing} onClick={()=>void selectSettings('sync')}>处理冲突</button></div>}
     {recovery!==null&&<div className="notice"><span>发现与磁盘版本不同的恢复草稿。恢复后请检查并协调内容。</span><button disabled={busy||composing||syncBlocked} onClick={()=>{change(recovery);setRecovery(null);}}>恢复草稿</button><button onClick={()=>setRecovery(null)}>稍后处理</button></div>}
     <div className="page-slot" hidden={module!=='home'}><HomePage recent={recent.map(item=>({...item,title:notes.find(note=>note.path===item.path)?.title??item.title}))} all={homePage==='recent'} busy={busy||composing} canCreate={native} onOpen={next=>void navigate(next)} onAll={()=>setHomePage('recent')} onNew={newNote} onBrowse={()=>void switchModule('notes')}/></div>
-    <section hidden={module!=='notes'} className="note-workspace"><div className="note-heading"><div><h1>{title||'一个想法，从这里开始'}</h1><p className="subtle">{new TextEncoder().encode(content).length.toLocaleString()} 字节 · {current?.tags.join(' · ')||'未设置标签'}</p></div><div className="segmented">{(['source','split','preview'] as const).map((key,i)=><button disabled={composing} className={mode===key?'selected':''} key={key} onClick={()=>setMode(key)}>{['源码','分栏','预览'][i]}</button>)}</div></div>
-    {path&&<div className="workspace-toolbar note-tools"><button disabled={busy||composing||!native||syncBlocked} onClick={()=>void importImage()}>插入图片</button><button aria-expanded={relationsOpen} aria-controls="note-relations" onClick={()=>setRelationsOpen(v=>!v)}>关联信息</button><details className="note-menu"><summary aria-label="笔记操作">更多 ···</summary><div className="note-menu-items"><button disabled={busy||composing||!native} onClick={()=>setModal({kind:'move',source:path,value:path})}>重命名 / 移动</button><button disabled={busy||composing||!native} onClick={()=>void run(async()=>{setHistory(await workspace({action:'history',path}));setHistorical(null);})}>版本历史</button><button disabled={busy||composing||!native} onClick={()=>setModal({kind:'delete',source:path,value:''})}>删除</button></div></details></div>}
+    <section hidden={module!=='notes'} className="note-workspace">
+      <header className="note-heading">
+        <div className="note-heading-copy">
+          <h1 title={title||'一个想法，从这里开始'}>{title||'一个想法，从这里开始'}</h1>
+          <p className="subtle" title={current?.tags.join(' · ')||'未设置标签'}>{new TextEncoder().encode(content).length.toLocaleString()} 字节 · {current?.tags.join(' · ')||'未设置标签'}</p>
+        </div>
+        <div className="note-heading-controls">
+          <div className="segmented" role="group" aria-label="笔记视图">
+            {(['source','split','preview'] as const).map((key,i)=><button disabled={composing} aria-pressed={mode===key} className={mode===key?'selected':''} key={key} onClick={()=>setMode(key)}>{['源码','分栏','预览'][i]}</button>)}
+          </div>
+          {path&&<div className="note-tools">
+            <button disabled={busy||composing||!native||syncBlocked} onClick={()=>void importImage()}>插入图片</button>
+            <button aria-expanded={relationsOpen} aria-controls="note-relations" onClick={()=>setRelationsOpen(v=>!v)}>关联信息</button>
+            <details className="note-menu">
+              <summary aria-label="笔记操作" title="更多笔记操作">更多 ···</summary>
+              <div className="note-menu-items">
+                <button disabled={busy||composing||!native} onClick={()=>setModal({kind:'move',source:path,value:path})}>重命名 / 移动</button>
+                <button disabled={busy||composing||!native} onClick={()=>void run(async()=>{setHistory(await workspace({action:'history',path}));setHistorical(null);})}>版本历史</button>
+                <button disabled={busy||composing||!native} onClick={()=>setModal({kind:'delete',source:path,value:''})}>删除</button>
+              </div>
+            </details>
+          </div>}
+        </div>
+      </header>
     {path?<div className="editing-area"><div className={`document-panes ${mode}`}>{<div hidden={mode==='preview'} className="source-pane"><div className="pane-label">MARKDOWN <span>UTF-8</span></div><Editor documentKey={`${vault?.id}:${path}`} value={content} readOnly={busy||syncBlocked} onChange={change} onComposition={composition}/></div>}{<div hidden={mode==='source'} className="preview-pane"><div className="pane-label">预览 <span>安全渲染</span></div><Preview content={content} path={path} onOpen={link}/></div>}</div><aside id="note-relations" className="relations" hidden={!relationsOpen}><button className="relation-close" aria-label="关闭关联信息" onClick={()=>setRelationsOpen(false)}>×</button><h3>标签</h3><p className="subtle">在 front matter 的 tags 数组中编辑</p><div className="tag-list">{current?.tags.map(t=><button key={t} onClick={()=>{setTag(t);sidebar.reveal();}}>#{t}</button>)}</div><h3>反向链接</h3>{notes.filter(n=>n.references.some(r=>r.target===path)).map(n=><button className="relation-link" key={n.path} onClick={()=>void navigate(n.path)}>{n.title}</button>)}<h3>出站链接</h3>{current?.references.filter(r=>!r.image).map((r,i)=><button className="relation-link" key={i} onClick={()=>{if(r.target)void navigate(r.target);else setError(`${r.resolution==='ambiguous'?'同名歧义':'目标缺失'}：${r.raw}`);}}>{r.target?'↗':'○'} {r.raw}{r.resolution==='ambiguous'?'（歧义）':''}</button>)}{current?.issues.map(issue=><p className="metadata-issue" key={issue}>{issue}</p>)}</aside></div>:<div className="empty-state"><h2>从第一篇笔记开始</h2><p>打开本地目录，或点击侧边栏「＋笔记」。</p></div>}
     <footer className="document-footer"><span>{composing?'中文组合输入中':'750 ms 自动保存'} · {platform.modifier} S 保存 · {platform.modifier} N 新建</span><span>本地 Markdown · {platform.desktop} MVP</span></footer></section>
     {graphVisited&&<div className="page-slot" hidden={module!=='graph'}><Suspense fallback={<p className="notice">正在加载图谱…</p>}><KnowledgeGraph key={vault?.id} active={module==='graph'} theme={theme} filters={graphFilters} current={path} revision={revision} onOpen={p=>void navigate(p)}/></Suspense></div>}

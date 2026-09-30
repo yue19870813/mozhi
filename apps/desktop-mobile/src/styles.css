@@ -80,12 +80,21 @@ summary { cursor:pointer; }
 .home-empty>span { font-size:32px; color:var(--muted); }
 .home-empty h2 { font-weight:500; font-size:20px; margin-top:24px; }
 .home-empty .workspace-toolbar { margin-top:24px; }
-.note-heading { padding:22px 24px 14px; flex-wrap:wrap; }
-.note-heading h1 { font-size:22px; margin:0 0 6px; overflow-wrap:anywhere; }
-.note-tools { margin:0 24px 14px; }
-.note-tools button { font-size:12px; }
-.note-menu { position:relative; margin-left:auto; font-size:12px; }
-.note-menu summary { padding:8px 12px; border-radius:6px; }
+/* Wrap according to the space left by the resizable module sidebar. */
+.note-workspace .note-heading { padding:12px 24px; gap:10px 20px; flex-direction:row; align-items:center; flex-wrap:wrap; flex-shrink:0; }
+.note-heading-copy { flex:1 1 180px; min-width:0; }
+.note-heading h1 { font-size:17px; line-height:24px; letter-spacing:0; margin:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.note-heading-copy .subtle { font-size:11px; line-height:18px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.note-heading-controls { display:flex; align-items:center; flex-wrap:wrap; gap:8px 12px; min-width:0; }
+.note-heading .segmented { padding:2px; border-radius:7px; }
+.note-heading .segmented button { min-height:28px; padding:4px 10px; }
+.note-tools { display:flex; align-items:center; gap:4px; margin:0; }
+.note-tools>button,.note-menu summary { font-size:12px; line-height:20px; padding:6px 8px; border:0; border-radius:6px; background:transparent; color:var(--muted); white-space:nowrap; }
+.note-tools>button:hover,.note-menu summary:hover,.note-menu[open]>summary { background:var(--selected); color:var(--text); }
+.note-tools>button[aria-expanded=true] { background:var(--selected); color:var(--accent); }
+.note-menu { position:relative; font-size:12px; }
+.note-menu summary { list-style:none; }
+.note-menu summary::-webkit-details-marker { display:none; }
 .note-menu-items { position:absolute; top:100%; right:0; z-index:15; background:var(--panel); border:1px solid var(--border); border-radius:8px; box-shadow:0 8px 24px #0003; padding:5px; width:170px; }
 .note-menu-items button { display:block; width:100%; border:0; text-align:left; background:transparent; padding:10px; }
 .editing-area { position:relative; }
@@ -135,8 +144,8 @@ summary { cursor:pointer; }
   .recent-row { gap:10px; flex-wrap:wrap; }
   .recent-row time { margin-left:32px; }
   .recent-copy { flex-basis:calc(100% - 40px); }
-  .note-heading { padding:18px 16px 12px; }
-  .note-tools { margin:0 16px 12px; }
+  .note-workspace .note-heading { padding:10px 12px; gap:8px; }
+  .note-heading-copy { flex-basis:100%; }
   .editing-area .document-panes { margin:0 12px; }
   .relations { right:12px; }
   .document-footer { padding:10px 12px; }
