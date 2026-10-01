@@ -17,7 +17,7 @@ export async function workspace<T>(request: Record<string,unknown>): Promise<T> 
   return call('workspace', { request });
 }
 export type ParsedNote = { path: string; id: string | null; title: string; tags: string[]; references: { raw: string; start: number; end: number; wiki: boolean; image: boolean; target: string | null; resolution: string }[]; issues: string[] };
-export type SyncConfig = { url: string; branch: string; username: string };
+export type SyncConfig = { protocol: 'https' | 'ssh'; url: string; branch: string; username: string };
 export type Conflict = { path: string; ancestor: string | null; local: string | null; remote: string | null; binary: boolean; localDeleted: boolean; remoteDeleted: boolean };
 export type SyncState = { phase: string; message: string; conflicts: Conflict[]; commit: string | null; lastSuccess: number | null };
 export const api = {

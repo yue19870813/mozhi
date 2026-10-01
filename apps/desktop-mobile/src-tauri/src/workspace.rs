@@ -143,7 +143,7 @@ pub async fn workspace(
             Request::Configure{config}=>{config.validate()?;vault::atomic_write(&active.private.join("git-config.json"),&serde_json::to_vec(&config).unwrap())?;Ok(json!(true))},
             Request::SyncState=>Ok(json!(sync::state(&active.private)?)),
             Request::Sync=>{
-                let config=config(active)?;let token=credentials::get(&config)?;
+                let config=config(active)?;let token=if config.protocol == "ssh" { String::new() } else { credentials::get(&config)? };
                 let mut sequence=0u64;let task_id=std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_nanos().to_string();
                 let result=sync::synchronize(active.vault.root(),&active.private,&config,&token,|phase| {sequence+=1;let _=app.emit("sync_state_changed",json!({"vaultId":active.id,"taskId":task_id,"sequence":sequence,"phase":phase}));});
                 let refreshed=refresh(active); // Reconcile even after a failed push.
@@ -203,8 +203,12 @@ pub async fn clone_vault(
             return Err(failure("请输入单个目录名称"));
         }
         let destination = operations::checked(&parent, &name, false)?;
-        let token = credentials::get(&config)?;
-        sync::clone_https(&config, &token, &destination)?;
+        let token = if config.protocol == "ssh" {
+            String::new()
+        } else {
+            credentials::get(&config)?
+        };
+        sync::clone(&config, &token, &destination)?;
         let opened = activate(&app, &state, destination)?;
         with_active(&state, |active| {
             vault::atomic_write(

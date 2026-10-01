@@ -9,7 +9,7 @@ serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true
 rusqlite = { version = "0.37", features = ["bundled"] }
-git2 = { version = "0.20", default-features = false, features = ["https", "vendored-libgit2", "vendored-openssl"] }
+git2 = { version = "0.20", default-features = false, features = ["https", "ssh", "vendored-libgit2", "vendored-openssl"] }
 sha2 = "0.10"
 tempfile = "3"
 walkdir = "2"

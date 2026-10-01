@@ -18,6 +18,8 @@ use std::{
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Config {
+    #[serde(default)]
+    pub protocol: String,
     pub url: String,
     pub branch: String,
     pub username: String,
@@ -25,15 +27,25 @@ pub struct Config {
 impl Config {
     pub fn validate(&self) -> Result<()> {
         let url =
-            url::Url::parse(&self.url).map_err(|_| Error::Probe("请输入 HTTPS 仓库 URL".into()))?;
-        if url.scheme() != "https"
+            url::Url::parse(&self.url).map_err(|_| Error::Probe("请输入有效的仓库 URL".into()))?;
+        let protocol = if self.protocol.is_empty() {
+            "https"
+        } else {
+            self.protocol.as_str()
+        };
+        let expected_scheme = match protocol {
+            "https" => "https",
+            "ssh" => "ssh",
+            _ => return Err(Error::Probe("同步协议无效".into())),
+        };
+        if url.scheme() != expected_scheme
             || url.host_str().is_none()
-            || !url.username().is_empty()
+            || (protocol == "https" && !url.username().is_empty())
             || url.password().is_some()
             || url.query().is_some()
             || url.fragment().is_some()
         {
-            return Err(Error::Probe("仅支持不含凭据、查询参数的 HTTPS URL".into()));
+            return Err(Error::Probe("仓库 URL 不应包含凭据、查询参数或片段".into()));
         }
         if !git2::Reference::is_valid_name(&format!("refs/heads/{}", self.branch))
             || self.branch.starts_with('-')
@@ -43,20 +55,32 @@ impl Config {
         Ok(())
     }
 }
-fn callbacks<'a>(username: &'a str, token: &'a str) -> RemoteCallbacks<'a> {
+fn callbacks<'a>(config: &'a Config, token: &'a str) -> RemoteCallbacks<'a> {
     let mut callbacks = RemoteCallbacks::new();
     callbacks.credentials(move |_url, user, allowed| {
-        if allowed.contains(git2::CredentialType::USER_PASS_PLAINTEXT) {
-            Cred::userpass_plaintext(
-                if username.is_empty() {
+        if config.protocol == "ssh" {
+            if allowed.contains(git2::CredentialType::SSH_KEY) {
+                return Cred::ssh_key_from_agent(if config.username.is_empty() {
                     user.unwrap_or("git")
                 } else {
-                    username
+                    &config.username
+                });
+            }
+            return Err(git2::Error::from_str("SSH 同步需要已加载密钥的 ssh-agent"));
+        }
+        if allowed.contains(git2::CredentialType::USER_PASS_PLAINTEXT) {
+            Cred::userpass_plaintext(
+                if config.username.is_empty() {
+                    user.unwrap_or("git")
+                } else {
+                    &config.username
                 },
                 token,
             )
         } else {
-            Err(git2::Error::from_str("仅支持 HTTPS Token 认证"))
+            Err(git2::Error::from_str(
+                "仅支持 HTTPS Token 或 SSH Agent 认证",
+            ))
         }
     });
     // No certificate callback: libgit2 must perform TLS verification.
@@ -65,14 +89,14 @@ fn callbacks<'a>(username: &'a str, token: &'a str) -> RemoteCallbacks<'a> {
 fn remote_error(error: git2::Error) -> Error {
     Error::Probe(
         match error.code() {
-            git2::ErrorCode::Auth => "Git 认证失败，请更新系统凭据存储中的 Token",
+            git2::ErrorCode::Auth => "Git 认证失败，请检查 HTTPS Token 或 SSH Agent",
             git2::ErrorCode::Certificate => "Git TLS 证书验证失败",
             _ => "Git 网络操作失败；本地提交和恢复记录已保留，请检查网络、仓库权限与分支",
         }
         .into(),
     )
 }
-pub fn clone_https(config: &Config, token: &str, destination: &Path) -> Result<()> {
+pub fn clone(config: &Config, token: &str, destination: &Path) -> Result<()> {
     config.validate()?;
     if destination.exists() {
         return Err(Error::Probe("克隆目标必须是尚不存在的新目录".into()));
@@ -80,7 +104,7 @@ pub fn clone_https(config: &Config, token: &str, destination: &Path) -> Result<(
     let parent = destination.parent().ok_or(Error::InvalidPath)?;
     let temporary = tempfile::tempdir_in(parent)?;
     let mut fetch = FetchOptions::new();
-    fetch.remote_callbacks(callbacks(&config.username, token));
+    fetch.remote_callbacks(callbacks(config, token));
     fetch.follow_redirects(git2::RemoteRedirect::None);
     RepoBuilder::new()
         .branch(&config.branch)
@@ -526,7 +550,7 @@ fn synchronize_inner(
             progress("fetching");
             let mut remote = repo.remote_anonymous(&config.url)?;
             let mut fetch = FetchOptions::new();
-            fetch.remote_callbacks(callbacks(&config.username, token));
+            fetch.remote_callbacks(callbacks(config, token));
             fetch.follow_redirects(git2::RemoteRedirect::None);
             remote
                 .fetch(
@@ -581,7 +605,7 @@ fn synchronize_inner(
             options.follow_redirects(git2::RemoteRedirect::None);
             let rejected = std::sync::Arc::new(std::sync::Mutex::new(false));
             let signal = rejected.clone();
-            let mut cb = callbacks(&config.username, token);
+            let mut cb = callbacks(config, token);
             cb.push_update_reference(move |_, status| {
                 if status.is_some() {
                     *signal.lock().unwrap() = true;
@@ -715,6 +739,7 @@ mod tests {
         fs::create_dir(&private_a).unwrap();
         fs::create_dir(&private_b).unwrap();
         let config = Config {
+            protocol: "https".into(),
             url: remote_path.to_string_lossy().into_owned(),
             branch: "main".into(),
             username: "git".into(),
@@ -816,6 +841,7 @@ mod tests {
         fs::create_dir(&private_a).unwrap();
         fs::create_dir(&private_b).unwrap();
         let config = Config {
+            protocol: "https".into(),
             url: remote_path.to_string_lossy().into_owned(),
             branch: "main".into(),
             username: "git".into(),
@@ -889,6 +915,7 @@ mod tests {
             "file:///repo",
         ] {
             assert!(Config {
+                protocol: "https".into(),
                 url: url.into(),
                 branch: "main".into(),
                 username: "git".into()
@@ -897,11 +924,20 @@ mod tests {
             .is_err());
         }
         assert!(Config {
+            protocol: "https".into(),
             url: "https://github.com/user/repo.git".into(),
             branch: "../main".into(),
             username: "git".into()
         }
         .validate()
         .is_err());
+        assert!(Config {
+            protocol: "ssh".into(),
+            url: "ssh://git@github.com/user/repo.git".into(),
+            branch: "main".into(),
+            username: "git".into(),
+        }
+        .validate()
+        .is_ok());
     }
 }
