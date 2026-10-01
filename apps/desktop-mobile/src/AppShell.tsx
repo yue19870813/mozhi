@@ -7,7 +7,7 @@ export function Icon({ name }: { name: Module | 'panel' }) {
     graph: <><circle cx="12" cy="5" r="3"/><circle cx="5" cy="18" r="3"/><circle cx="19" cy="18" r="3"/><path d="m10.5 7.5-4 8m7-8 4 8M8 18h8"/></>,
     help: <><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 0 1 5 .5c0 2-2.5 2-2.5 4M12 17h.01"/></>,
     settings: <><path d="M9.67 4.14a2 2 0 0 1 1.76-1.04h1.14a2 2 0 0 1 1.76 1.04l.63 1.16a1 1 0 0 0 .88.5l1.33-.03a2 2 0 0 1 1.78 1l.57.99a2 2 0 0 1 .02 2.04l-.69 1.13a1 1 0 0 0 0 1.02l.69 1.13a2 2 0 0 1-.02 2.04l-.57.99a2 2 0 0 1-1.78 1l-1.33-.03a1 1 0 0 0-.88.5l-.63 1.16a2 2 0 0 1-1.76 1.04h-1.14a2 2 0 0 1-1.76-1.04l-.63-1.16a1 1 0 0 0-.88-.5l-1.33.03a2 2 0 0 1-1.78-1l-.57-.99a2 2 0 0 1-.02-2.04l.69-1.13a1 1 0 0 0 0-1.02l-.69-1.13a2 2 0 0 1 .02-2.04l.57-.99a2 2 0 0 1 1.78-1l1.33.03a1 1 0 0 0 .88-.5Z" transform="translate(0 .56)"/><circle cx="12" cy="12" r="3.2"/></>,
-    panel: <><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/></>,
+    panel: <><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M9 4v16"/></>,
   };
   return <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{paths[name]}</svg>;
 }

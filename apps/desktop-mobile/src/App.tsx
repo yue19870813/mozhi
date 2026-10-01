@@ -248,7 +248,7 @@ export default function App(){
     <div className="sidebar-bottom"><button disabled={!native||busy||composing} onClick={()=>void openVault()}>打开笔记库</button><div className="local-indicator"><span className="dot"/>{native?'本地工作区':'浏览器内存演示'}</div></div>
   </>;
   return <AppShell active={module} disabled={busy||composing||!!modal||history!==null} onNavigate={next=>void switchModule(next)} sidebar={sidebarContent} sidebarVisible={sidebar.visible} dismissSidebar={sidebar.dismiss}>
-    <header className="topbar"><button className="sidebar-toggle" aria-label={sidebar.visible?'收起侧栏':'展开侧栏'} aria-expanded={sidebar.visible} aria-controls="module-sidebar" onClick={sidebar.toggle}><Icon name="panel"/></button><div className="breadcrumb">{module==='notes'?`笔记库 / ${path||'未选择笔记'}`:moduleLabels[module]}</div><div className="save-status" role="status"><span className="dot"/>{status}</div></header>
+    <header className="topbar"><button className="sidebar-toggle" title={sidebar.visible?'隐藏侧栏':'展开侧栏'} aria-label={sidebar.visible?'收起侧栏':'展开侧栏'} aria-expanded={sidebar.visible} aria-controls="module-sidebar" onClick={sidebar.toggle}><Icon name="panel"/></button><div className="breadcrumb">{module==='notes'?`笔记库 / ${path||'未选择笔记'}`:moduleLabels[module]}</div><div className="save-status" role="status"><span className="dot"/>{status}</div></header>
     {error&&<div className="notice error" role="alert"><span>{error}</span>{path&&<button disabled={busy||composing} onClick={()=>{setBusy(true);api.draft(path,session.current?.text??content).then(()=>loadNote(path)).catch(e=>setError(errorText(e))).finally(()=>setBusy(false));}}>保留草稿并重读磁盘</button>}<button aria-label="关闭提示" onClick={()=>setError('')}>×</button></div>}
     {syncBlocked&&<div className="notice"><span>此库有待处理的 Git 冲突，编辑暂时只读。</span><button disabled={busy||composing} onClick={()=>void selectSettings('sync')}>处理冲突</button></div>}
     {recovery!==null&&<div className="notice"><span>发现与磁盘版本不同的恢复草稿。恢复后请检查并协调内容。</span><button disabled={busy||composing||syncBlocked} onClick={()=>{change(recovery);setRecovery(null);}}>恢复草稿</button><button onClick={()=>setRecovery(null)}>稍后处理</button></div>}
@@ -260,6 +260,7 @@ export default function App(){
           <p className="subtle" title={current?.tags.join(' · ')||'未设置标签'}>{new TextEncoder().encode(content).length.toLocaleString()} 字节 · {current?.tags.join(' · ')||'未设置标签'}</p>
         </div>
         <div className="note-heading-controls">
+          <button className="sidebar-toggle" title={sidebar.visible?'隐藏侧栏':'展开侧栏'} aria-label={sidebar.visible?'隐藏笔记侧栏':'展开笔记侧栏'} aria-expanded={sidebar.visible} aria-controls="module-sidebar" onClick={sidebar.toggle}><Icon name="panel"/></button>
           <div className="segmented" role="group" aria-label="笔记视图">
             {(['source','split','preview'] as const).map((key,i)=><button disabled={composing} aria-pressed={mode===key} className={mode===key?'selected':''} key={key} onClick={()=>setMode(key)}>{['源码','分栏','预览'][i]}</button>)}
           </div>
