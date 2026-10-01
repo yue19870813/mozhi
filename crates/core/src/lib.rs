@@ -23,6 +23,7 @@ pub type Result<T> = std::result::Result<T, Error>;
 pub mod knowledge;
 pub mod markdown;
 pub mod operations;
+pub mod recovery;
 pub mod sync;
 
 pub mod paths;

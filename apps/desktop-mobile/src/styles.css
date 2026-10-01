@@ -159,3 +159,11 @@ summary { cursor:pointer; }
   .graph-panel { padding:18px 12px; }
   .notice { margin:8px 12px 0; }
 }
+
+.recovery-summary { display:flex; flex-wrap:wrap; gap:8px 20px; align-items:center; margin:24px 0 16px; }
+.recovery-settings { display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:16px; margin-bottom:16px; }
+.recovery-settings label { display:flex; flex-direction:column; gap:8px; color:var(--muted); font-size:12px; }
+.recovery-settings input { width:100%; padding:9px; border:1px solid var(--border); border-radius:6px; color:var(--text); background:var(--panel); }
+.recovery-warning,.recovery-confirm { background:var(--selected); border:1px solid var(--border); border-radius:8px; padding:14px; font-size:13px; line-height:1.8; overflow-wrap:anywhere; }
+.recovery-confirm button { margin:0 8px 4px 0; }
+.recovery-panel .recovery-card h3 { overflow-wrap:anywhere; }

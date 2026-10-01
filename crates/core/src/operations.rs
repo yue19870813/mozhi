@@ -9,6 +9,7 @@ use std::{
     fs,
     io::{Read, Write},
     path::{Component, Path, PathBuf},
+    time::{SystemTime, UNIX_EPOCH},
 };
 use unicode_normalization::UnicodeNormalization;
 use uuid::Uuid;
@@ -139,12 +140,20 @@ pub struct Recovery {
     pub source: String,
     pub destination: Option<String>,
     pub completed: bool,
+    #[serde(default)]
+    pub created_at: u64,
+}
+fn now() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs()
 }
 #[derive(Serialize, Deserialize)]
-struct Backup {
-    path: String,
-    content: Vec<u8>,
-    hash: String,
+pub(crate) struct Backup {
+    pub(crate) path: String,
+    pub(crate) content: Vec<u8>,
+    pub(crate) hash: String,
 }
 fn snapshot(root: &Path, relative: &str) -> Result<Vec<Backup>> {
     let source = checked(root, relative, true)?;
@@ -201,6 +210,7 @@ pub fn remove(vault: &Vault, relative: &str) -> Result<String> {
         source: relative.into(),
         destination: None,
         completed: false,
+        created_at: now(),
     };
     let dir = journal(vault, &record, &backups)?;
     verify(vault.root(), &backups)?;
@@ -278,6 +288,7 @@ pub fn move_entry(vault: &Vault, from: &str, to: &str) -> Result<String> {
         source: from.into(),
         destination: Some(to.into()),
         completed: false,
+        created_at: now(),
     };
     let dir = journal(vault, &record, &backups)?;
     verify(vault.root(), &backups)?;

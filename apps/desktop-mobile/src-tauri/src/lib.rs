@@ -23,6 +23,7 @@ struct Active {
     id: String,
     private: PathBuf,
     _watcher: Option<watcher::Watcher>,
+    recovery_warnings: Vec<String>,
 }
 #[derive(Clone, Default)]
 struct AppState(Arc<Mutex<Option<Active>>>);
@@ -126,12 +127,14 @@ fn activate(app: &tauri::AppHandle, state: &AppState, root: PathBuf) -> ApiResul
         .to_string();
     let saved_root = root.to_string_lossy().to_string();
     let watcher = watcher::Watcher::start(app.clone(), &root, key.clone());
+    let recovery_warnings = workspace::automatic_recovery_cleanup(&vault);
     *guard = Some(Active {
         vault,
         index,
         id: key.clone(),
         private,
         _watcher: watcher,
+        recovery_warnings,
     });
     vault::atomic_write(
         &app.path()

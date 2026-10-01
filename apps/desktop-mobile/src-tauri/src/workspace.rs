@@ -1,10 +1,21 @@
 use crate::*;
 use base64::Engine;
-use mozhi_core::{knowledge, operations, sync};
+use mozhi_core::{knowledge, operations, recovery, sync};
 use serde::Deserialize;
 use serde_json::{json, Value};
 use tauri::Emitter;
 
+pub(super) fn automatic_recovery_cleanup(vault: &Vault) -> Vec<String> {
+    match recovery::automatic(vault) {
+        Ok(result) => result.warnings,
+        Err(error) => vec![format!("恢复记录自动清理未完成：{error}")],
+    }
+}
+fn recovery_overview(active: &Active) -> ApiResult<Value> {
+    let mut overview = recovery::overview(&active.vault)?;
+    overview.warnings.extend(active.recovery_warnings.clone());
+    Ok(json!(overview))
+}
 pub(super) fn identity(active: &Active, id: &str) -> ApiResult<()> {
     if active.id != id {
         Err(failure("笔记库已切换，请丢弃过期请求"))
@@ -61,6 +72,14 @@ pub enum Request {
         path: String,
     },
     Recoveries,
+    RecoveryOverview,
+    RecoveryConfigure {
+        policy: recovery::Policy,
+    },
+    RecoveryPreview,
+    RecoveryClean {
+        candidates: Vec<recovery::Candidate>,
+    },
     Restore {
         id: String,
     },
@@ -124,9 +143,21 @@ pub async fn workspace(
             },
             Request::Knowledge=>Ok(json!(active.index.knowledge()?)),
             Request::Create{path,directory}=>{operations::create(&active.vault,&path,directory)?;refresh(active)},
-            Request::Move{from,to}=>{let recovery_id=operations::move_entry(&active.vault,&from,&to)?;let vault=refresh(active)?;Ok(json!({"vault":vault,"recoveryId":recovery_id}))},
-            Request::Delete{path}=>{let recovery_id=operations::remove(&active.vault,&path)?;let vault=refresh(active)?;Ok(json!({"vault":vault,"recoveryId":recovery_id}))},
+            Request::Move{from,to}=>{let recovery_id=operations::move_entry(&active.vault,&from,&to)?;active.recovery_warnings=automatic_recovery_cleanup(&active.vault);let vault=refresh(active)?;Ok(json!({"vault":vault,"recoveryId":recovery_id}))},
+            Request::Delete{path}=>{let recovery_id=operations::remove(&active.vault,&path)?;active.recovery_warnings=automatic_recovery_cleanup(&active.vault);let vault=refresh(active)?;Ok(json!({"vault":vault,"recoveryId":recovery_id}))},
             Request::Recoveries=>Ok(json!(operations::recoveries(&active.vault)?)),
+            Request::RecoveryOverview=>recovery_overview(active),
+            Request::RecoveryConfigure{policy}=>{
+                recovery::save_policy(&active.vault,&policy)?;
+                active.recovery_warnings=automatic_recovery_cleanup(&active.vault);
+                recovery_overview(active)
+            },
+            Request::RecoveryPreview=>Ok(json!(recovery::expired_plan(&active.vault)?)),
+            Request::RecoveryClean{candidates}=>{
+                let result=recovery::clean_expired(&active.vault,candidates)?;
+                active.recovery_warnings=result.warnings.clone();
+                Ok(json!({"cleanup":result,"overview":recovery_overview(active)?}))
+            },
             Request::Restore{id}=>{let path=operations::restore(&active.vault,&id)?;let vault=refresh(active)?;Ok(json!({"path":path,"vault":vault}))},
             Request::Search{query,directory,tag,filename_only}=>Ok(json!(active.index.query_filtered(&query,&directory,&tag,filename_only)?)),
             Request::Graph{query}=>Ok(json!(knowledge::graph(&active.index.knowledge()?,&query))),

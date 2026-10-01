@@ -8,6 +8,7 @@ import { Editor } from './Editor';
 import { Preview } from './Preview';
 import { platform } from './platform';
 import { SyncPanel } from './SyncPanel';
+import { RecoveryPanel } from './RecoveryPanel';
 import { AppShell, Icon, useSidebar } from './AppShell';
 import { HomePage } from './HomePage';
 import { GraphFilters, initialGraphFilters } from './GraphFilters';
@@ -19,7 +20,6 @@ const KnowledgeGraph=lazy(()=>import('./KnowledgeGraph').then(m=>({default:m.Kno
 const ProbeGraph=lazy(()=>import('./Graph').then(m=>({default:m.Graph})));
 
 type TreeEntry={path:string;isDirectory:boolean;isAttachment?:boolean};
-type Recovery={id:string;kind:string;source:string;destination:string|null;completed:boolean};
 type Modal={kind:'note'|'directory'|'move'|'delete';source:string;value:string;parent?:string};
 export default function App(){
   const treeContextMenu = useRef<Menu | null>(null);
@@ -41,7 +41,7 @@ export default function App(){
   useEffect(()=>{savePreference('mozhi-editor-mode',mode);},[mode]);
   useEffect(()=>{if(searchFocus&&module==='notes'&&sidebar.visible)searchField.current?.focus();},[searchFocus,module,sidebar.visible]);
   const [theme,setTheme]=useState(readPreference('mozhi-theme','dark')),[status,setStatus]=useState('打开笔记库'),[error,setError]=useState(''),[busy,setBusy]=useState(true),[composing,setComposing]=useState(false);
-  const [recovery,setRecovery]=useState<string|null>(null),[recoveries,setRecoveries]=useState<Recovery[]>([]),[modal,setModal]=useState<Modal|null>(null);
+  const [recovery,setRecovery]=useState<string|null>(null),[modal,setModal]=useState<Modal|null>(null);
   const [syncBlocked,setSyncBlocked]=useState(false);
   const [query,setQuery]=useState(''),[tag,setTag]=useState(''),[directory,setDirectory]=useState(''),[filenameOnly,setFilenameOnly]=useState(false),[results,setResults]=useState<SearchResult|null>(null);
   const [tree,setTree]=useState<TreeEntry[]>([]),[notes,setNotes]=useState<ParsedNote[]>([]),[revision,setRevision]=useState(0),[collapsed,setCollapsed]=useState<Set<string>>(new Set());
@@ -58,7 +58,7 @@ export default function App(){
     session.current=new DocumentSession(note,api.save,setError);setPath(next);setContent(note.content);setRecovery(draft!==null&&draft!==note.content?draft:null);setStatus(native?'已保存到本机':'浏览器内存演示');setHistory(null);setHistorical(null);return note;
   },[]);
   const adopt=useCallback(async(opened:Vault)=>{
-    selectVault(opened.id);vaultRef.current=opened;storeRecent(pruneRecent(readRecent(localStorage,opened.id),opened.entries.map(e=>e.path),opened.skipped),opened.id);setGraphFilters(initialGraphFilters);setGraphVisited(false);setRelationsOpen(false);setRecoveries([]);setSyncBlocked(false);setVault(opened);setQuery('');setTag('');setDirectory('');setSelectedDirectory('');setSelectedTreePath('');session.current=null;setPath('');setContent('');setRecovery(null);setNotes([]);setTree([]);setCollapsed(new Set());
+    selectVault(opened.id);vaultRef.current=opened;storeRecent(pruneRecent(readRecent(localStorage,opened.id),opened.entries.map(e=>e.path),opened.skipped),opened.id);setGraphFilters(initialGraphFilters);setGraphVisited(false);setRelationsOpen(false);setSyncBlocked(false);setVault(opened);setQuery('');setTag('');setDirectory('');setSelectedDirectory('');setSelectedTreePath('');session.current=null;setPath('');setContent('');setRecovery(null);setNotes([]);setTree([]);setCollapsed(new Set());
     const first=opened.entries.find(e=>e.path==='欢迎使用.md'&&!opened.skipped.includes(e.path))??opened.entries.find(e=>!opened.skipped.includes(e.path));
     if(first)await loadNote(first.path);else setStatus('此目录暂无笔记，点击新建笔记开始');
     await updateKnowledge();if(opened.skipped.length)setError(`未读取的笔记：${opened.skipped.join('、')}`);
@@ -126,7 +126,6 @@ export default function App(){
     setModule(next);sidebar.dismiss();
   });}
   async function selectSettings(next:SettingsPage){await run(async()=>{
-    if(next==='recovery'&&native)setRecoveries(await workspace<Recovery[]>({action:'recoveries'}));
     if(next==='sync')setSyncVisited(true);
     setModule('settings');setSettingsPage(next);sidebar.dismiss();
   });}
@@ -286,7 +285,7 @@ export default function App(){
     <section className="settings-page" hidden={tab!=='vault'}><h1>笔记库</h1><p className="subtle">当前笔记库：{vault?.name}</p><div className="workspace-toolbar"><button disabled={busy||composing||!native} onClick={()=>void openVault()}>打开其他笔记库</button><button disabled={busy||composing||!native} onClick={()=>void run(async()=>{if(await workspace({action:'export'}))setStatus('笔记库已导出');})}>导出笔记库</button></div></section>
     <section className="help-page" hidden={tab!=='intro'}><h1>使用入门</h1><h2>把想法留在本机</h2><p>打开一个本地文件夹作为笔记库，在「我的笔记」中新建 Markdown 笔记和目录。</p><h2>专注书写</h2><p>源码、分栏与预览随时切换。输入会自动保存；保存失败或发现冲突时，请按页面提示协调版本。</p><h2>连接知识</h2><p>使用 [[笔记名称]] 建立引用，在关联信息中查看反向链接，在知识图谱中探索笔记之间的联系。</p><h2>同步与恢复</h2><p>在设置中配置 Git 同步、查看恢复记录或导出笔记库。</p></section>
     <section className="help-page" hidden={tab!=='shortcuts'}><h1>快捷键</h1><dl className="shortcut-list"><div><dt>搜索笔记</dt><dd>{platform.modifier} K</dd></div><div><dt>新建笔记</dt><dd>{platform.modifier} N</dd></div><div><dt>保存当前笔记</dt><dd>{platform.modifier} S</dd></div></dl></section>
-    <section hidden={tab!=='recovery'} className="lab-panel"><h1>恢复记录</h1><p className="subtle">删除、移动及链接改写前的副本保存在本机。恢复到新目录，不覆盖现有内容。</p>{recoveries.map(r=><article className="recovery-card" key={r.id}><h3>{r.source}{r.destination&&` → ${r.destination}`}</h3><p>{r.kind} · {r.completed?'操作已完成':'操作中断，请检查双方目录并恢复副本'}</p><button disabled={busy} onClick={()=>void run(async()=>{const result=await workspace<{path:string}>({action:'restore',id:r.id});await reload();setStatus(`已恢复至 ${result.path}`);})}>恢复副本到新目录</button></article>)}{!recoveries.length&&<p>暂无恢复记录。</p>}</section>
+    {tab==='recovery'&&<RecoveryPanel key={vault?.id} busy={busy||composing} run={run} onRestore={async id=>{const result=await workspace<{path:string}>({action:'restore',id});await reload();setStatus(`已恢复至 ${result.path}`);}}/>}
     <section hidden={tab!=='lab'} className="lab-panel"><h1>技术验证</h1><p className="subtle">验证样本与实际笔记库分开运行。中文组合输入仍需人工操作系统输入法。</p><div className="workspace-toolbar"><button disabled={busy} onClick={()=>setLongSample(('# 中文输入样本\n\n知识图谱帮助我整理项目计划。Rust 与 Markdown 混排，标点：预算、计划。\n').repeat(660))}>加载 100 KB 长文</button><button disabled={busy||!native} onClick={()=>void run(async()=>setReport(await api.probes()))}>运行搜索 / Git 样本</button></div>{report!==null&&<pre className="report-json">{JSON.stringify(report,null,2)}</pre>}{longSample&&<div className="long-sample"><Editor documentKey="long-sample" value={longSample} readOnly={false} onChange={setLongSample} onComposition={composition}/></div>}<div className="probe-graph"><Suspense fallback={null}>{tab==='lab'&&<ProbeGraph/>}</Suspense></div></section>
   {modal&&<div className="modal-backdrop"><form className="modal create-modal" role="dialog" aria-modal="true" aria-label="管理笔记" onSubmit={e=>{e.preventDefault();void submitModal();}}><h2>{{note:'新建笔记',directory:'新建目录',move:'重命名或移动',delete:'删除并保留恢复副本'}[modal.kind]}</h2>{modal.kind==='note'||modal.kind==='directory'?<><label className="modal-field">位置<select aria-label="新建位置" value={modal.parent??''} onChange={e=>setModal({...modal,parent:e.target.value})}><option value="">{vault?.name??'笔记库'} · 根目录</option>{tree.filter(entry=>entry.isDirectory).map(entry=><option key={entry.path} value={entry.path}>{entry.path}</option>)}</select></label><label className="modal-field">名称<input autoFocus aria-label="名称" value={modal.value} onFocus={e=>e.currentTarget.select()} onChange={e=>{setError('');setModal({...modal,value:e.target.value});}}/></label><p className="create-destination">{modal.parent?`${modal.parent} / `:''}{modal.value.trim()}{modal.kind==='note'&&!modal.value.trim().endsWith('.md')?'.md':''}</p></>:<><p className="subtle">{modal.source}</p>{modal.kind!=='delete'&&<input autoFocus aria-label="目标路径" value={modal.value} onChange={e=>setModal({...modal,value:e.target.value})}/>}</>}<div className="workspace-toolbar"><button type="submit" className="primary" disabled={busy||composing}>{modal.kind==='delete'?'确认删除':modal.kind==='note'||modal.kind==='directory'?'创建':'保存'}</button><button type="button" disabled={busy} onClick={()=>{setModal(null);setError('');}}>取消</button>{modal.kind==='move'&&<button type="button" disabled={busy} onClick={()=>setModal({...modal,kind:'delete'})}>删除此项</button>}</div>{error&&<p role="alert">{error}</p>}</form></div>}
   {history!==null&&<div className="modal-backdrop"><div className="modal history-modal" role="dialog" aria-modal="true" aria-label="版本历史"><h2>版本历史 · {path}</h2><p className="subtle">恢复作为当前修改保存，下一次同步产生新提交，不改写历史。</p><div className="revision-list">{history.map(h=><button key={h.id} disabled={busy} onClick={()=>void run(async()=>setHistorical(await workspace({action:'version',path,id:h.id})))}>{new Date(h.timestamp*1000).toLocaleString()} · {h.message} · {h.id.slice(0,7)}</button>)}</div>{historical!==null&&<textarea aria-label="历史内容" readOnly value={historical}/>}<div className="workspace-toolbar"><button disabled={busy||composing||syncBlocked||historical===null} onClick={()=>{if(historical!==null){change(historical);setHistory(null);setHistorical(null);}}}>恢复此版本到编辑器</button><button onClick={()=>{setHistory(null);setHistorical(null);}}>关闭</button></div></div></div>}
