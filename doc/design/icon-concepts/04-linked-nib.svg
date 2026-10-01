@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <title>MoZhi - Linked Nib</title>
+  <rect width="512" height="512" rx="112" fill="#1C3737"/>
+  <path d="M134 174 256 263l122-89M256 263v118" fill="none" stroke="#66A9B9" stroke-width="15" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="134" cy="174" r="30" fill="#E5B276"/>
+  <circle cx="378" cy="174" r="30" fill="#E5B276"/>
+  <circle cx="256" cy="381" r="30" fill="#78C3AE"/>
+  <path d="M256 151 345 257 256 351 167 257 256 151Z" fill="#F0F5EF"/>
+  <path d="M256 213v111" stroke="#254D4B" stroke-width="17" stroke-linecap="round"/>
+  <circle cx="256" cy="252" r="16" fill="#254D4B"/>
+</svg>

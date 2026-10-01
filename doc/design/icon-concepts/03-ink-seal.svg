@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <title>MoZhi - Ink Seal</title>
+  <rect width="512" height="512" rx="112" fill="#EDF2ED"/>
+  <rect x="81" y="81" width="350" height="350" rx="38" fill="#203C3B"/>
+  <path d="M159 162h194M182 213h148M151 264h210" stroke="#F2F5EC" stroke-width="25" stroke-linecap="square"/>
+  <path d="M256 155v116" stroke="#F2F5EC" stroke-width="25"/>
+  <path d="M172 317h168l-23 49H195l-23-49Z" fill="#8BD1BE"/>
+  <circle cx="372" cy="365" r="21" fill="#E8A16A"/>
+</svg>

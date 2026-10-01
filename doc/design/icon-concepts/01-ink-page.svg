@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <title>MoZhi - Ink Page</title>
+  <rect width="512" height="512" rx="112" fill="#20272C"/>
+  <path d="M104 149c61-25 116-19 152 8v224c-36-27-91-33-152-8V149Z" fill="#F3F6F3"/>
+  <path d="M408 149c-61-25-116-19-152 8v224c36-27 91-33 152-8V149Z" fill="#DCE8E6"/>
+  <path d="M256 157v224" stroke="#263C41" stroke-width="14" stroke-linecap="round"/>
+  <path d="M322 139v100l27-20 27 20V129c-20-3-38 0-54 10Z" fill="#78B9DB"/>
+  <path d="M135 230c30-7 58-5 83 4M135 271c30-7 58-5 83 4" stroke="#8FA2A2" stroke-width="12" stroke-linecap="round"/>
+</svg>

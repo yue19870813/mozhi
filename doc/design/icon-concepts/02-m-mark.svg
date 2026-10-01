@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <title>MoZhi - M Mark</title>
+  <rect width="512" height="512" rx="112" fill="#326B95"/>
+  <path d="M94 364V171c0-19 15-34 34-34 10 0 19 4 26 12l102 111 102-111c7-8 16-12 26-12 19 0 34 15 34 34v193h-67V241l-95 102-95-102v123H94Z" fill="#F7FAF8"/>
+  <circle cx="256" cy="152" r="23" fill="#F1B578"/>
+</svg>
