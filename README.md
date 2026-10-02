@@ -26,7 +26,7 @@ cargo run --release -p mozhi-core --bin p0-probe -- 10000
 
 Windows 打包运行 `npm run tauri -- build --bundles nsis`，产物位于 `target/release/bundle/nsis/`；当前采用手动安装包升级。
 
-macOS 应用包位于 `target/release/bundle/macos/墨知.app`，未签名公证，不属于公开发布包。
+macOS 应用包位于 `target/release/bundle/macos/墨知.app`。GitHub Actions 支持手动发布 Windows x64、macOS Apple Silicon / Intel 安装包及校验文件；操作与权限配置见 [CI 与 Release 指南](doc/release.md)。默认产物未签名公证。
 
 ## 功能
 

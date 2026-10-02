@@ -1,7 +1,13 @@
 name: macOS MVP validation
 on:
   push:
+    branches: [main]
   pull_request:
+permissions:
+  contents: read
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
   macos:
     runs-on: macos-latest
@@ -15,17 +21,24 @@ jobs:
         with:
           components: rustfmt, clippy
       - uses: Swatinem/rust-cache@v2
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Test release preparation and asset validation
+        run: python -B -m unittest discover -s scripts -p test_release.py -v
       - run: npm ci
       - run: npm run build
       - run: npm test
       - run: cargo fmt --all --check
       - run: cargo test --workspace --locked
       - run: cargo clippy --workspace --all-targets --locked -- -D warnings
-      - run: npm run tauri -- build --bundles app
+      - run: npm run tauri -- build --ci --bundles dmg -- --locked
       - run: cargo run --release -p mozhi-core --bin p0-probe -- 10000 > p0-report.json
       - uses: actions/upload-artifact@v4
         with:
           name: macos-mvp
+          if-no-files-found: error
+          retention-days: 14
           path: |
             p0-report.json
-            target/release/bundle/macos/*.app
+            target/release/bundle/dmg/*.dmg
