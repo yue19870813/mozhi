@@ -1,6 +1,11 @@
 {
-  "name": "mozhi", "private": true, "version": "0.1.0", "type": "module",
-  "workspaces": ["apps/desktop-mobile"],
+  "name": "mozhi",
+  "private": true,
+  "version": "0.1.0-alpha",
+  "type": "module",
+  "workspaces": [
+    "apps/desktop-mobile"
+  ],
   "scripts": {
     "dev": "npm run dev -w @mozhi/app",
     "build": "npm run build -w @mozhi/app",
