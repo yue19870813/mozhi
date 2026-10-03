@@ -167,3 +167,9 @@ summary { cursor:pointer; }
 .recovery-warning,.recovery-confirm { background:var(--selected); border:1px solid var(--border); border-radius:8px; padding:14px; font-size:13px; line-height:1.8; overflow-wrap:anywhere; }
 .recovery-confirm button { margin:0 8px 4px 0; }
 .recovery-panel .recovery-card h3 { overflow-wrap:anywhere; }
+
+.pinned-sidebar { flex-shrink:0; max-height:30vh; overflow:auto; border-bottom:1px solid var(--border); padding-bottom:8px; }
+.pin-action { flex-shrink:0; font-size:11px; padding:5px 7px; background:transparent; color:var(--muted); }
+.pinned-home-row { display:flex; align-items:center; gap:10px; border-bottom:1px solid var(--border); }
+.pinned-home-row .recent-row { flex:1; min-width:0; border-bottom:0; }
+.note-tools button[aria-pressed=true] { color:var(--accent); background:var(--selected); }

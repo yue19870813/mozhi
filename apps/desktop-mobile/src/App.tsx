@@ -15,6 +15,7 @@ import { HomePage } from './HomePage';
 import { GraphFilters, initialGraphFilters } from './GraphFilters';
 import { afterSave, moduleLabels, readEditorMode, readPreference, savePreference, type Module, type HomePage as HomeSection, type HelpPage, type SettingsPage } from './navigation';
 import { readRecent, writeRecent, visitRecent, moveRecent, pruneRecent, type RecentNote } from './recent';
+import { readPinned, writePinned, togglePinned, movePinned, prunePinned } from './pinned';
 import { createPath, parentDirectory } from './create-path';
 import { dropFolderForEntry, treeMoveDestination } from './tree-drag';
 const KnowledgeGraph=lazy(()=>import('./KnowledgeGraph').then(m=>({default:m.KnowledgeGraph})));
@@ -31,6 +32,15 @@ export default function App(){
   const tab=module==='settings'?settingsPage:module==='help'?helpPage:module;
   const sidebar=useSidebar();
   const [recent,setRecent]=useState<RecentNote[]>([]),recentRef=useRef<RecentNote[]>([]);
+  const [pinned,setPinned]=useState<string[]>([]),pinnedRef=useRef<string[]>([]);
+  function storePinned(paths:string[],id=vaultRef.current?.id){
+    pinnedRef.current=paths;setPinned(paths);
+    if(id)try{writePinned(localStorage,id,paths);}catch{setError('无法保存置顶设置；笔记内容不受影响。');}
+  }
+  function togglePin(next:string){
+    if(busy||composing||operation.current||isComposing.current||!vaultRef.current)return;
+    storePinned(togglePinned(pinnedRef.current,next));
+  }
   const [relationsOpen,setRelationsOpen]=useState(false),[graphVisited,setGraphVisited]=useState(false),[syncVisited,setSyncVisited]=useState(false);
   const [graphFilters,setGraphFilters]=useState(initialGraphFilters);
   const [searchFocus,setSearchFocus]=useState(0);
@@ -59,7 +69,7 @@ export default function App(){
     session.current=new DocumentSession(note,api.save,setError);setPath(next);setContent(note.content);setRecovery(draft!==null&&draft!==note.content?draft:null);setStatus(native?'已保存到本机':'浏览器内存演示');setHistory(null);setHistorical(null);return note;
   },[]);
   const adopt=useCallback(async(opened:Vault)=>{
-    selectVault(opened.id);vaultRef.current=opened;storeRecent(pruneRecent(readRecent(localStorage,opened.id),opened.entries.map(e=>e.path),opened.skipped),opened.id);setGraphFilters(initialGraphFilters);setGraphVisited(false);setRelationsOpen(false);setSyncBlocked(false);setVault(opened);setQuery('');setTag('');setDirectory('');setSelectedDirectory('');setSelectedTreePath('');session.current=null;setPath('');setContent('');setRecovery(null);setNotes([]);setTree([]);setCollapsed(new Set());
+    selectVault(opened.id);vaultRef.current=opened;storePinned(prunePinned(readPinned(localStorage,opened.id),opened.entries.map(e=>e.path)),opened.id);storeRecent(pruneRecent(readRecent(localStorage,opened.id),opened.entries.map(e=>e.path),opened.skipped),opened.id);setGraphFilters(initialGraphFilters);setGraphVisited(false);setRelationsOpen(false);setSyncBlocked(false);setVault(opened);setQuery('');setTag('');setDirectory('');setSelectedDirectory('');setSelectedTreePath('');session.current=null;setPath('');setContent('');setRecovery(null);setNotes([]);setTree([]);setCollapsed(new Set());
     const first=opened.entries.find(e=>e.path==='欢迎使用.md'&&!opened.skipped.includes(e.path))??opened.entries.find(e=>!opened.skipped.includes(e.path));
     if(first)await loadNote(first.path);else setStatus('此目录暂无笔记，点击新建笔记开始');
     await updateKnowledge();if(opened.skipped.length)setError(`未读取的笔记：${opened.skipped.join('、')}`);
@@ -75,7 +85,7 @@ export default function App(){
   }
   async function reload(){
     if(!native)return;
-    const opened=await workspace<Vault>({action:'refresh'});setVault(opened);vaultRef.current=opened;storeRecent(pruneRecent(recentRef.current,opened.entries.map(e=>e.path),opened.skipped));
+    const opened=await workspace<Vault>({action:'refresh'});setVault(opened);vaultRef.current=opened;storePinned(prunePinned(pinnedRef.current,opened.entries.map(e=>e.path)));storeRecent(pruneRecent(recentRef.current,opened.entries.map(e=>e.path),opened.skipped));
     const previous=session.current?.note.path;
     if(previous&&opened.entries.some(e=>e.path===previous)){const disk=await api.read(previous);if(disk.contentHash!==session.current?.note.contentHash)await loadNote(previous);}
     else {session.current=null;setPath('');setContent('');setRecovery(null);}
@@ -145,6 +155,8 @@ export default function App(){
         action: () => { void workspace({action:'open_directory',path:entry?.path??''}).catch(e=>setError(errorText(e))); } }];
       if (entry) items.push({ id: 'manage-entry', text: '重命名 / 移动',
         action: () => setModal({kind:'move',source:entry.path,value:entry.path}) });
+      const menuVaultId=vaultRef.current?.id;
+      if(entry&&!entry.isDirectory&&!entry.isAttachment)items.push({id:'toggle-pin',text:pinnedRef.current.includes(entry.path)?'取消置顶':'置顶笔记',action:()=>{if(menuVaultId===vaultRef.current?.id)togglePin(entry.path);}});
       await treeContextMenu.current?.close();
       const menu = await Menu.new({items});
       treeContextMenu.current = menu;
@@ -170,6 +182,7 @@ export default function App(){
   async function performMove(source:string,destination:string,folder:string){
     await workspace({action:'move',from:source,to:destination});
     storeRecent(moveRecent(recentRef.current,source,destination));
+    storePinned(movePinned(pinnedRef.current,source,destination));
     const next=path===source||path.startsWith(`${source}/`)?`${destination}${path.slice(source.length)}`:path;
     await reload();if(next&&next!==path)await loadNote(next);
     setSelectedDirectory(folder);
@@ -226,6 +239,7 @@ export default function App(){
     return()=>{disposed=true;clearInterval(timer);stop?.();};
   },[vault?.id]);
   const title=current?.title??content.match(/^# (.+)$/m)?.[1]??path.replace(/\.md$/i,'');
+  const pinnedNotes=pinned.filter(next=>!vault?.skipped.includes(next)).map(next=>({path:next,title:notes.find(note=>note.path===next)?.title??next.split('/').pop()!.replace(/\.md$/i,'')}));
   const visibleTree=(native?tree:vault?.entries.map(e=>({...e,isDirectory:false,isAttachment:false}))??[]).filter(e=>![...collapsed].some(folder=>e.path.startsWith(`${folder}/`)));
   const sidebarContent=<>
     <button className="vault-switcher" disabled={!native||busy||composing} onClick={()=>void openVault()} title={vault?.name}><img className="mini-brand" src={brandLogo} alt="" width={32} height={32} /><span>墨知<small>{vault?.name??'正在加载…'}</small></span><span aria-hidden="true">⌄</span></button>
@@ -236,6 +250,7 @@ export default function App(){
     <div className="module-sidebar-page notes-sidebar" hidden={module!=='notes'}>
     <div className="search-box"><span>⌕</span><input ref={searchField} aria-label="搜索笔记" placeholder="搜索 / tag:工作" value={query} onChange={e=>setQuery(e.target.value)}/><kbd>{platform.modifier} K</kbd></div>
     <details className="filter-disclosure"><summary>筛选条件</summary><div className="search-filters"><select aria-label="搜索标签" value={tag} onChange={e=>setTag(e.target.value)}><option value="">所有标签</option>{tags.map(t=><option key={t}>{t}</option>)}</select><select aria-label="搜索目录" value={directory} onChange={e=>setDirectory(e.target.value)}><option value="">所有目录</option>{tree.filter(e=>e.isDirectory).map(e=><option key={e.path}>{e.path}</option>)}</select><label><input type="checkbox" checked={filenameOnly} onChange={e=>setFilenameOnly(e.target.checked)}/>仅文件名</label></div></details>
+    {!!pinnedNotes.length&&<section className="pinned-sidebar" aria-label="置顶笔记"><div className="sidebar-label">置顶笔记</div>{pinnedNotes.map(note=><div className="tree-row" key={note.path}><button className={`note-item ${path===note.path?'selected':''}`} title={note.path} disabled={busy||composing} onClick={()=>void navigate(note.path)}><span aria-hidden="true">↑</span><span>{note.title}</span></button><button className="pin-action" aria-label={`取消置顶 ${note.path}`} title="取消置顶" disabled={busy||composing} onClick={()=>togglePin(note.path)}>取消置顶</button></div>)}</section>}
     <div className="sidebar-label">{query||tag||directory?'搜索结果':'笔记库'}</div>
     <div className={`vault-root ${selectedTreePath===''?'selected':''} ${dropTarget===''&&dropTargetRow===null?'drop-target':''}`} onDragOver={event=>dragOverFolder(event,'')} onDragLeave={event=>{if(!event.currentTarget.contains(event.relatedTarget as Node)){setDropTarget(null);setDropTargetRow(null);}}} onDrop={event=>void dropIntoFolder(event,'')}><button disabled={busy||composing} onClick={()=>{setSelectedDirectory('');setSelectedTreePath('');}}>▱ {vault?.name??'正在加载…'} <small>根目录</small></button></div>
     <div className="file-actions"><button disabled={busy||composing||!native} onClick={newNote}>＋笔记</button><button disabled={busy||composing||!native} onClick={newDirectory}>＋目录</button><button disabled={busy||composing||!native} onClick={()=>void run(reload)}>刷新</button></div>
@@ -252,7 +267,7 @@ export default function App(){
     {error&&<div className="notice error" role="alert"><span>{error}</span>{path&&<button disabled={busy||composing} onClick={()=>{setBusy(true);api.draft(path,session.current?.text??content).then(()=>loadNote(path)).catch(e=>setError(errorText(e))).finally(()=>setBusy(false));}}>保留草稿并重读磁盘</button>}<button aria-label="关闭提示" onClick={()=>setError('')}>×</button></div>}
     {syncBlocked&&<div className="notice"><span>此库有待处理的 Git 冲突，编辑暂时只读。</span><button disabled={busy||composing} onClick={()=>void selectSettings('sync')}>处理冲突</button></div>}
     {recovery!==null&&<div className="notice"><span>发现与磁盘版本不同的恢复草稿。恢复后请检查并协调内容。</span><button disabled={busy||composing||syncBlocked} onClick={()=>{change(recovery);setRecovery(null);}}>恢复草稿</button><button onClick={()=>setRecovery(null)}>稍后处理</button></div>}
-    <div className="page-slot" hidden={module!=='home'}><HomePage recent={recent.map(item=>({...item,title:notes.find(note=>note.path===item.path)?.title??item.title}))} all={homePage==='recent'} busy={busy||composing} canCreate={native} onOpen={next=>void navigate(next)} onAll={()=>setHomePage('recent')} onNew={newNote} onBrowse={()=>void switchModule('notes')}/></div>
+    <div className="page-slot" hidden={module!=='home'}><HomePage pinned={pinnedNotes} onTogglePin={togglePin} recent={recent.map(item=>({...item,title:notes.find(note=>note.path===item.path)?.title??item.title}))} all={homePage==='recent'} busy={busy||composing} canCreate={native} onOpen={next=>void navigate(next)} onAll={()=>setHomePage('recent')} onNew={newNote} onBrowse={()=>void switchModule('notes')}/></div>
     <section hidden={module!=='notes'} className="note-workspace">
       <header className="note-heading">
         <div className="note-heading-copy">
@@ -265,6 +280,7 @@ export default function App(){
             {(['source','split','preview'] as const).map((key,i)=><button disabled={composing} aria-pressed={mode===key} className={mode===key?'selected':''} key={key} onClick={()=>setMode(key)}>{['源码','分栏','预览'][i]}</button>)}
           </div>
           {path&&<div className="note-tools">
+            <button disabled={busy||composing} aria-pressed={pinned.includes(path)} onClick={()=>togglePin(path)}>{pinned.includes(path)?'取消置顶':'置顶笔记'}</button>
             <button disabled={busy||composing||!native||syncBlocked} onClick={()=>void importImage()}>插入图片</button>
             <button aria-expanded={relationsOpen} aria-controls="note-relations" onClick={()=>setRelationsOpen(v=>!v)}>关联信息</button>
             <details className="note-menu">
