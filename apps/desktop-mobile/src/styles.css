@@ -27,7 +27,7 @@ button,input,select,textarea { font-size:13px; }
 .vault-switcher:disabled { opacity:1; }
 .vault-switcher>span:nth-child(2) { min-width:0; flex:1; font-size:16px; font-weight:500; }
 .vault-switcher small { display:block; color:var(--muted); font-size:11px; font-weight:400; margin-top:4px; text-overflow:ellipsis; white-space:nowrap; overflow:hidden; }
-.mini-brand { display:grid; place-items:center; width:30px; height:32px; border:1px solid var(--muted); border-radius:8px 2px 8px 2px; font-family:serif; }
+.mini-brand { display:block; width:32px; height:32px; flex-shrink:0; object-fit:contain; border-radius:7px; }
 .module-sidebar-page { display:flex; flex-direction:column; min-height:0; flex:1; overflow:auto; }
 .module-sidebar-page h2 { font-size:13px; font-weight:500; padding:10px 8px; color:var(--muted); margin:0; }
 .sidebar nav { border:0; padding:10px 0; }

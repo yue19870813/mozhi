@@ -7,6 +7,7 @@ import { DocumentSession } from './session';
 import { Editor } from './Editor';
 import { Preview } from './Preview';
 import { platform } from './platform';
+import brandLogo from './assets/brand-logo.png';
 import { SyncPanel } from './SyncPanel';
 import { RecoveryPanel } from './RecoveryPanel';
 import { AppShell, Icon, useSidebar } from './AppShell';
@@ -227,7 +228,7 @@ export default function App(){
   const title=current?.title??content.match(/^# (.+)$/m)?.[1]??path.replace(/\.md$/i,'');
   const visibleTree=(native?tree:vault?.entries.map(e=>({...e,isDirectory:false,isAttachment:false}))??[]).filter(e=>![...collapsed].some(folder=>e.path.startsWith(`${folder}/`)));
   const sidebarContent=<>
-    <button className="vault-switcher" disabled={!native||busy||composing} onClick={()=>void openVault()} title={vault?.name}><span className="mini-brand">墨</span><span>墨知<small>{vault?.name??'正在加载…'}</small></span><span aria-hidden="true">⌄</span></button>
+    <button className="vault-switcher" disabled={!native||busy||composing} onClick={()=>void openVault()} title={vault?.name}><img className="mini-brand" src={brandLogo} alt="" width={32} height={32} /><span>墨知<small>{vault?.name??'正在加载…'}</small></span><span aria-hidden="true">⌄</span></button>
     <div className="module-sidebar-page" hidden={module!=='home'}>
       <button className="new-note" disabled={!native||busy||composing} onClick={newNote}>＋ 新建笔记</button>
       <nav aria-label="首页导航">{([['overview','概览'],['recent','最近打开']] as const).map(([key,label])=><button className={`nav-item ${homePage===key?'active':''}`} aria-current={homePage===key?'page':undefined} key={key} disabled={busy||composing} onClick={()=>{setHomePage(key);sidebar.dismiss();}}>{label}</button>)}</nav>
