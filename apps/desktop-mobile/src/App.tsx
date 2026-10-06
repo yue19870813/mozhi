@@ -12,6 +12,7 @@ import { SyncPanel } from './SyncPanel';
 import { RecoveryPanel } from './RecoveryPanel';
 import { AppShell, Icon, useSidebar } from './AppShell';
 import { HomePage } from './HomePage';
+import { AutoSyncSchedule, defaultAutoSync, readAutoSync, writeAutoSync, type AutoSyncSettings } from './auto-sync';
 import { GraphFilters, initialGraphFilters } from './GraphFilters';
 import { afterSave, moduleLabels, readEditorMode, readPreference, savePreference, type Module, type HomePage as HomeSection, type HelpPage, type SettingsPage } from './navigation';
 import { readRecent, writeRecent, visitRecent, moveRecent, pruneRecent, type RecentNote } from './recent';
@@ -32,6 +33,12 @@ export default function App(){
   const tab=module==='settings'?settingsPage:module==='help'?helpPage:module;
   const sidebar=useSidebar();
   const [recent,setRecent]=useState<RecentNote[]>([]),recentRef=useRef<RecentNote[]>([]);
+  const [autoSync,setAutoSync]=useState(defaultAutoSync),[autoPaused,setAutoPaused]=useState(false),[syncRevision,setSyncRevision]=useState(0);
+  const autoSchedule=useRef(new AutoSyncSchedule(Date.now()));
+  function configureAutoSync(settings:AutoSyncSettings){
+    const id=vaultRef.current?.id;if(!id)return;
+    try{writeAutoSync(localStorage,id,settings);setAutoSync(settings);autoSchedule.current.paused=false;setAutoPaused(false);}catch{setError('无法保存自动同步设置');}
+  }
   const [pinned,setPinned]=useState<string[]>([]),pinnedRef=useRef<string[]>([]);
   function storePinned(paths:string[],id=vaultRef.current?.id){
     pinnedRef.current=paths;setPinned(paths);
@@ -76,7 +83,7 @@ export default function App(){
   },[loadNote,updateKnowledge]);
   const flush=useCallback(async()=>{
     const current=session.current;if(!current?.dirty)return;setStatus('正在保存…');
-    try{await current.flush();if(current===session.current){setStatus(native?'已保存到本机':'已更新演示内容');await updateKnowledge();}}
+    try{await current.flush();if(current===session.current){autoSchedule.current.savedAt=Date.now();setStatus(native?'已保存到本机':'已更新演示内容');await updateKnowledge();}}
     catch(e){setStatus('保存未完成');setError(errorText(e));throw e;}
   },[updateKnowledge]);
   async function run<T>(action:()=>Promise<T>):Promise<T|undefined>{
@@ -91,6 +98,33 @@ export default function App(){
     else {session.current=null;setPath('');setContent('');setRecovery(null);}
     await updateKnowledge();
   }
+  async function syncNow(automatic=false){
+    const schedule=autoSchedule.current;
+    const success=await run(async()=>{
+      try{
+        if(automatic){const config=await workspace({action:'config'});if(!config)throw new Error('请先保存 Git 同步设置');}
+        const result=await workspace<{state:{phase:string;message:string}}>({action:'sync'});
+        await reload();setSyncRevision(value=>value+1);
+        if(result.state.phase==='conflict')throw new Error('Git 同步发生冲突，请在同步设置中处理');
+        schedule.succeeded(Date.now());setAutoPaused(false);setStatus('同步完成');return true;
+      }catch(e){
+        schedule.paused=true;setAutoPaused(true);setSyncRevision(value=>value+1);
+        try{await reload();}catch{/* Keep the original sync error visible. */}
+        throw e;
+      }
+    });
+    if(automatic&&!success){schedule.paused=true;setAutoPaused(true);}
+  }
+  useEffect(()=>{
+    if(!vault?.id)return;
+    setAutoSync(readAutoSync(localStorage,vault.id));autoSchedule.current=new AutoSyncSchedule(Date.now());setAutoPaused(false);
+  },[vault?.id]);
+  const automaticTick=useRef(()=>{});
+  automaticTick.current=()=>{
+    const blocked=!native||!vault||busy||operation.current||composing||isComposing.current||syncBlocked||!!modal||history!==null||recovery!==null||document.hidden||!!session.current?.dirty;
+    if(autoSchedule.current.due(autoSync,Date.now(),blocked))void syncNow(true);
+  };
+  useEffect(()=>{const timer=setInterval(()=>automaticTick.current(),1000);return()=>clearInterval(timer);},[]);
   useEffect(()=>{if(initialized.current)return;initialized.current=true;api.openDemo().then(adopt).catch(e=>setError(errorText(e))).finally(()=>setBusy(false));},[adopt]);
   useEffect(()=>{document.documentElement.dataset.theme=theme;savePreference('mozhi-theme',theme);},[theme]);
   useEffect(()=>{
@@ -297,7 +331,7 @@ export default function App(){
     {path?<div className="editing-area"><div className={`document-panes ${mode}`}>{<div hidden={mode==='preview'} className="source-pane"><div className="pane-label">MARKDOWN <span>UTF-8</span></div><Editor documentKey={`${vault?.id}:${path}`} value={content} readOnly={busy||syncBlocked} onChange={change} onComposition={composition}/></div>}{<div hidden={mode==='source'} className="preview-pane"><div className="pane-label">预览 <span>安全渲染</span></div><Preview content={content} path={path} onOpen={link}/></div>}</div><aside id="note-relations" className="relations" hidden={!relationsOpen}><button className="relation-close" aria-label="关闭关联信息" onClick={()=>setRelationsOpen(false)}>×</button><h3>标签</h3><p className="subtle">在 front matter 的 tags 数组中编辑</p><div className="tag-list">{current?.tags.map(t=><button key={t} onClick={()=>{setTag(t);sidebar.reveal();}}>#{t}</button>)}</div><h3>反向链接</h3>{notes.filter(n=>n.references.some(r=>r.target===path)).map(n=><button className="relation-link" key={n.path} onClick={()=>void navigate(n.path)}>{n.title}</button>)}<h3>出站链接</h3>{current?.references.filter(r=>!r.image).map((r,i)=><button className="relation-link" key={i} onClick={()=>{if(r.target)void navigate(r.target);else setError(`${r.resolution==='ambiguous'?'同名歧义':'目标缺失'}：${r.raw}`);}}>{r.target?'↗':'○'} {r.raw}{r.resolution==='ambiguous'?'（歧义）':''}</button>)}{current?.issues.map(issue=><p className="metadata-issue" key={issue}>{issue}</p>)}</aside></div>:<div className="empty-state"><h2>从第一篇笔记开始</h2><p>打开本地目录，或点击侧边栏「＋笔记」。</p></div>}
     <footer className="document-footer"><span>{composing?'中文组合输入中':'750 ms 自动保存'} · {platform.modifier} S 保存 · {platform.modifier} N 新建</span><span>本地 Markdown · {platform.desktop} MVP</span></footer></section>
     {graphVisited&&<div className="page-slot" hidden={module!=='graph'}><Suspense fallback={<p className="notice">正在加载图谱…</p>}><KnowledgeGraph key={vault?.id} active={module==='graph'} theme={theme} filters={graphFilters} current={path} revision={revision} onOpen={p=>void navigate(p)}/></Suspense></div>}
-    {syncVisited&&<div className="page-slot" hidden={tab!=='sync'}><SyncPanel key={vault?.id} busy={busy||composing} run={run} onVault={adopt} onReload={reload}/></div>}
+    {syncVisited&&<div className="page-slot" hidden={tab!=='sync'}><SyncPanel key={vault?.id} busy={busy||composing} run={run} onVault={adopt} onReload={reload} onSync={()=>syncNow()} syncRevision={syncRevision} autoSync={autoSync} autoPaused={autoPaused} onAutoSync={configureAutoSync}/></div>}
     <section className="settings-page" hidden={tab!=='appearance'}><h1>外观</h1><p className="subtle">选择适合你的阅读与书写环境。</p><div className="setting-row"><span>主题</span><div className="segmented">{(['dark','light'] as const).map(value=><button key={value} aria-pressed={theme===value} className={theme===value?'selected':''} onClick={()=>setTheme(value)}>{value==='dark'?'深色':'浅色'}</button>)}</div></div></section>
     <section className="settings-page" hidden={tab!=='vault'}><h1>笔记库</h1><p className="subtle">当前笔记库：{vault?.name}</p><div className="workspace-toolbar"><button disabled={busy||composing||!native} onClick={()=>void openVault()}>打开其他笔记库</button><button disabled={busy||composing||!native} onClick={()=>void run(async()=>{if(await workspace({action:'export'}))setStatus('笔记库已导出');})}>导出笔记库</button></div></section>
     <section className="help-page" hidden={tab!=='intro'}><h1>使用入门</h1><h2>把想法留在本机</h2><p>打开一个本地文件夹作为笔记库，在「我的笔记」中新建 Markdown 笔记和目录。</p><h2>专注书写</h2><p>源码、分栏与预览随时切换。输入会自动保存；保存失败或发现冲突时，请按页面提示协调版本。</p><h2>连接知识</h2><p>使用 [[笔记名称]] 建立引用，在关联信息中查看反向链接，在知识图谱中探索笔记之间的联系。</p><h2>同步与恢复</h2><p>在设置中配置 Git 同步、查看恢复记录或导出笔记库。</p></section>
