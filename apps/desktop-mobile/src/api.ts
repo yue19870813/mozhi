@@ -40,6 +40,8 @@ export const api = {
     return { hits: [...samples].filter(([path, content]) => path.startsWith(directory) && `${path}\n${content}`.toLowerCase().includes(query.toLowerCase())).map(([path, content]) => ({ path, title: content.match(/^# (.+)$/m)?.[1] ?? path, excerpt: content.slice(0, 160) })), elapsedMs: performance.now() - started, strategy: 'browser-demo' };
   },
   async credentials(config: SyncConfig): Promise<boolean> { return invoke('set_credentials', { config }); },
+  async selectSshKey(): Promise<{ keyCount: number } | null> { return invoke('select_ssh_key'); },
+  async checkSshAgent(): Promise<{ keyCount: number }> { return invoke('check_ssh_agent'); },
   async clone(config: SyncConfig, name: string): Promise<Vault | null> { return invoke('clone_vault', { config, name }); },
   async probes(): Promise<unknown> { if (!native) throw new Error('请在桌面应用中运行 Rust 样本'); return invoke('run_probes'); },
 };

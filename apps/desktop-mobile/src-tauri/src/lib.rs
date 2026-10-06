@@ -1,5 +1,6 @@
 mod credentials;
 mod file_manager;
+mod ssh_agent;
 mod watcher;
 mod workspace;
 use mozhi_core::{
@@ -325,6 +326,8 @@ pub fn run() {
             workspace::workspace,
             workspace::set_credentials,
             workspace::clone_vault,
+            ssh_agent::select_ssh_key,
+            ssh_agent::check_ssh_agent,
             open_demo,
             open_vault,
             read_note,
