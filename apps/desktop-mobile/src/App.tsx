@@ -2,7 +2,7 @@ import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react'
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { listen } from '@tauri-apps/api/event';
 import { Menu } from '@tauri-apps/api/menu';
-import { api, errorText, native, selectVault, workspace, type ParsedNote, type SearchResult, type Vault } from './api';
+import { api, aiRequest, errorText, native, selectVault, workspace, type ParsedNote, type SearchResult, type Vault } from './api';
 import { DocumentSession } from './session';
 import { Editor } from './Editor';
 import { Preview } from './Preview';
@@ -12,6 +12,8 @@ import { SyncPanel } from './SyncPanel';
 import { RecoveryPanel } from './RecoveryPanel';
 import { AppShell, Icon, useSidebar } from './AppShell';
 import { HomePage } from './HomePage';
+import { AiAssistant, emptyAiSession, type AiSession } from './AiAssistant';
+import { AiSettings } from './AiSettings';
 import { AutoSyncSchedule, defaultAutoSync, readAutoSync, writeAutoSync, type AutoSyncSettings } from './auto-sync';
 import { GraphFilters, initialGraphFilters } from './GraphFilters';
 import { afterSave, moduleLabels, readEditorMode, readPreference, savePreference, type Module, type HomePage as HomeSection, type HelpPage, type SettingsPage } from './navigation';
@@ -33,6 +35,9 @@ export default function App(){
   const tab=module==='settings'?settingsPage:module==='help'?helpPage:module;
   const sidebar=useSidebar();
   const [recent,setRecent]=useState<RecentNote[]>([]),recentRef=useRef<RecentNote[]>([]);
+  const aiSessions=useRef(new Map<string,AiSession>());
+  const [aiVisited,setAiVisited]=useState(false),[summaryPath,setSummaryPath]=useState('');
+  const rememberAiSession=useCallback((value:AiSession)=>{const id=vaultRef.current?.id;if(id)aiSessions.current.set(id,value);},[]);
   const [autoSync,setAutoSync]=useState(defaultAutoSync),[autoPaused,setAutoPaused]=useState(false),[syncRevision,setSyncRevision]=useState(0);
   const autoSchedule=useRef(new AutoSyncSchedule(Date.now()));
   function configureAutoSync(settings:AutoSyncSettings){
@@ -76,6 +81,7 @@ export default function App(){
     session.current=new DocumentSession(note,api.save,setError);setPath(next);setContent(note.content);setRecovery(draft!==null&&draft!==note.content?draft:null);setStatus(native?'已保存到本机':'浏览器内存演示');setHistory(null);setHistorical(null);return note;
   },[]);
   const adopt=useCallback(async(opened:Vault)=>{
+    setSummaryPath('');
     selectVault(opened.id);vaultRef.current=opened;storePinned(prunePinned(readPinned(localStorage,opened.id),opened.entries.map(e=>e.path)),opened.id);storeRecent(pruneRecent(readRecent(localStorage,opened.id),opened.entries.map(e=>e.path),opened.skipped),opened.id);setGraphFilters(initialGraphFilters);setGraphVisited(false);setRelationsOpen(false);setSyncBlocked(false);setVault(opened);setQuery('');setTag('');setDirectory('');setSelectedDirectory('');setSelectedTreePath('');session.current=null;setPath('');setContent('');setRecovery(null);setNotes([]);setTree([]);setCollapsed(new Set());
     const first=opened.entries.find(e=>e.path==='欢迎使用.md'&&!opened.skipped.includes(e.path))??opened.entries.find(e=>!opened.skipped.includes(e.path));
     if(first)await loadNote(first.path);else setStatus('此目录暂无笔记，点击新建笔记开始');
@@ -166,6 +172,7 @@ export default function App(){
   function change(value:string){if(!session.current)return;session.current.text=value;setContent(value);setStatus(session.current.dirty?'待保存…':native?'已保存到本机':'浏览器内存演示');}
   function composition(active:boolean){isComposing.current=active;setComposing(active);}
   async function switchModule(next:Module){await run(async()=>{
+    if(next==='ai'){setAiVisited(true);setSummaryPath('');}
     if(next==='graph')setGraphVisited(true);
     if(next==='settings'&&settingsPage==='sync')setSyncVisited(true);
     setModule(next);sidebar.dismiss();
@@ -292,8 +299,9 @@ export default function App(){
     {results&&<p className="search-meta">{results.hits.length} 条 · {results.elapsedMs.toFixed(1)} ms · 最多 100 条</p>}
     </div>
     <div className="module-sidebar-page" hidden={module!=='graph'}><h2>知识图谱</h2><GraphFilters value={graphFilters} onChange={setGraphFilters} current={path} tags={tags}/></div>
+    <div className="module-sidebar-page" hidden={module!=='ai'}><h2>AI 助理</h2><button className="nav-item" disabled={busy||composing} onClick={()=>void selectSettings('ai')}>模型设置</button></div>
     <div className="module-sidebar-page" hidden={module!=='help'}><h2>帮助</h2><nav aria-label="帮助导航">{([['intro','使用入门'],['shortcuts','快捷键'],['lab','技术验证']] as const).map(([key,label])=><button className={`nav-item ${helpPage===key?'active':''}`} key={key} disabled={busy||composing} onClick={()=>void run(async()=>{setHelpPage(key);sidebar.dismiss();})}>{label}</button>)}</nav></div>
-    <div className="module-sidebar-page" hidden={module!=='settings'}><h2>设置</h2><nav aria-label="设置导航">{([['appearance','外观'],['vault','笔记库'],['sync','同步'],['recovery','恢复记录']] as const).map(([key,label])=><button className={`nav-item ${settingsPage===key?'active':''}`} key={key} disabled={busy||composing} onClick={()=>void selectSettings(key)}>{label}</button>)}</nav></div>
+    <div className="module-sidebar-page" hidden={module!=='settings'}><h2>设置</h2><nav aria-label="设置导航">{([['appearance','外观'],['vault','笔记库'],['sync','同步'],['recovery','恢复记录'],['ai','AI 模型']] as const).map(([key,label])=><button className={`nav-item ${settingsPage===key?'active':''}`} key={key} disabled={busy||composing} onClick={()=>void selectSettings(key)}>{label}</button>)}</nav></div>
     <div className="sidebar-bottom"><button disabled={!native||busy||composing} onClick={()=>void openVault()}>打开笔记库</button><div className="local-indicator"><span className="dot"/>{native?'本地工作区':'浏览器内存演示'}</div></div>
   </>;
   return <AppShell active={module} disabled={busy||composing||!!modal||history!==null} onNavigate={next=>void switchModule(next)} sidebar={sidebarContent} sidebarVisible={sidebar.visible} dismissSidebar={sidebar.dismiss}>
@@ -314,6 +322,7 @@ export default function App(){
             {(['source','split','preview'] as const).map((key,i)=><button disabled={composing} aria-pressed={mode===key} className={mode===key?'selected':''} key={key} onClick={()=>setMode(key)}>{['源码','分栏','预览'][i]}</button>)}
           </div>
           {path&&<div className="note-tools">
+            <button disabled={busy||composing} onClick={()=>void run(async()=>{setSummaryPath(path);setAiVisited(true);setModule('ai');sidebar.dismiss();})}>AI 总结</button>
             <button disabled={busy||composing} aria-pressed={pinned.includes(path)} onClick={()=>togglePin(path)}>{pinned.includes(path)?'取消置顶':'置顶笔记'}</button>
             <button disabled={busy||composing||!native||syncBlocked} onClick={()=>void importImage()}>插入图片</button>
             <button aria-expanded={relationsOpen} aria-controls="note-relations" onClick={()=>setRelationsOpen(v=>!v)}>关联信息</button>
@@ -332,6 +341,8 @@ export default function App(){
     <footer className="document-footer"><span>{composing?'中文组合输入中':'750 ms 自动保存'} · {platform.modifier} S 保存 · {platform.modifier} N 新建</span><span>本地 Markdown · {platform.desktop} MVP</span></footer></section>
     {graphVisited&&<div className="page-slot" hidden={module!=='graph'}><Suspense fallback={<p className="notice">正在加载图谱…</p>}><KnowledgeGraph key={vault?.id} active={module==='graph'} theme={theme} filters={graphFilters} current={path} revision={revision} onOpen={p=>void navigate(p)}/></Suspense></div>}
     {syncVisited&&<div className="page-slot" hidden={tab!=='sync'}><SyncPanel key={vault?.id} busy={busy||composing} run={run} onVault={adopt} onReload={reload} onSync={()=>syncNow()} syncRevision={syncRevision} autoSync={autoSync} autoPaused={autoPaused} onAutoSync={configureAutoSync}/></div>}
+    {aiVisited&&vault&&<div className="page-slot" hidden={module!=='ai'}><AiAssistant key={vault.id} vaultId={vault.id} notes={notes.length?notes:vault.entries.map(note=>({path:note.path,title:note.path.replace(/\.md$/i,'')}))} directories={tree.filter(entry=>entry.isDirectory).map(entry=>entry.path)} initial={aiSessions.current.get(vault.id)??emptyAiSession()} onSession={rememberAiSession} onOpen={next=>void navigate(next)} onSettings={()=>void selectSettings('ai')} summaryPath={summaryPath} onSave={async(next,body)=>{const saved=await run(async()=>{const result=await aiRequest<{indexWarning?:string}>(vault.id,{action:'save',path:next,body});autoSchedule.current.savedAt=Date.now();try{await reload();}catch{setError('笔记已保存，请重新打开笔记库刷新索引');}if(result.indexWarning)setError(result.indexWarning);setStatus(`已创建 ${next}`);return true;});return saved===true;}}/></div>}
+    {module==='settings'&&settingsPage==='ai'&&<AiSettings/>}
     <section className="settings-page" hidden={tab!=='appearance'}><h1>外观</h1><p className="subtle">选择适合你的阅读与书写环境。</p><div className="setting-row"><span>主题</span><div className="segmented">{(['dark','light'] as const).map(value=><button key={value} aria-pressed={theme===value} className={theme===value?'selected':''} onClick={()=>setTheme(value)}>{value==='dark'?'深色':'浅色'}</button>)}</div></div></section>
     <section className="settings-page" hidden={tab!=='vault'}><h1>笔记库</h1><p className="subtle">当前笔记库：{vault?.name}</p><div className="workspace-toolbar"><button disabled={busy||composing||!native} onClick={()=>void openVault()}>打开其他笔记库</button><button disabled={busy||composing||!native} onClick={()=>void run(async()=>{if(await workspace({action:'export'}))setStatus('笔记库已导出');})}>导出笔记库</button></div></section>
     <section className="help-page" hidden={tab!=='intro'}><h1>使用入门</h1><h2>把想法留在本机</h2><p>打开一个本地文件夹作为笔记库，在「我的笔记」中新建 Markdown 笔记和目录。</p><h2>专注书写</h2><p>源码、分栏与预览随时切换。输入会自动保存；保存失败或发现冲突时，请按页面提示协调版本。</p><h2>连接知识</h2><p>使用 [[笔记名称]] 建立引用，在关联信息中查看反向链接，在知识图谱中探索笔记之间的联系。</p><h2>同步与恢复</h2><p>在设置中配置 Git 同步、查看恢复记录或导出笔记库。</p></section>

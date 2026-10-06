@@ -20,6 +20,13 @@ export type ParsedNote = { path: string; id: string | null; title: string; tags:
 export type SyncConfig = { protocol: 'https' | 'ssh'; url: string; branch: string; username: string };
 export type Conflict = { path: string; ancestor: string | null; local: string | null; remote: string | null; binary: boolean; localDeleted: boolean; remoteDeleted: boolean };
 export type SyncState = { phase: string; message: string; conflicts: Conflict[]; commit: string | null; lastSuccess: number | null };
+export type AiConfig = { baseUrl: string; model: string };
+export type AiSource = { id: number; path: string; text: string; contentHash: string; truncated: boolean };
+export type AiPrepared = { id: string; vaultId: string; config: AiConfig; mode: string; question: string; sources: AiSource[]; authorized: boolean; history: {role:string;content:string}[] };
+export async function aiRequest<T>(vaultId: string, request: Record<string, unknown>): Promise<T> {
+  if(!native)throw new Error('AI 功能需要桌面应用');
+  return invoke('ai_request', { vaultId, request });
+}
 export const api = {
   async openDemo(): Promise<Vault> {
     return native ? invoke('open_demo') : { id: 'demo', name: '墨知示例笔记', entries: [...samples].map(([path, content]) => ({ path, bytes: new TextEncoder().encode(content).length })), skipped: [] };
@@ -41,6 +48,7 @@ export const api = {
   },
   async credentials(config: SyncConfig): Promise<boolean> { return invoke('set_credentials', { config }); },
   async selectSshKey(): Promise<{ keyCount: number } | null> { return invoke('select_ssh_key'); },
+  async aiKey(): Promise<boolean> { return invoke('ai_key'); },
   async checkSshAgent(): Promise<{ keyCount: number }> { return invoke('check_ssh_agent'); },
   async clone(config: SyncConfig, name: string): Promise<Vault | null> { return invoke('clone_vault', { config, name }); },
   async probes(): Promise<unknown> { if (!native) throw new Error('请在桌面应用中运行 Rust 样本'); return invoke('run_probes'); },

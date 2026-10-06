@@ -93,9 +93,22 @@ fn store(config: &Config, bytes: &[u8]) -> ApiResult<()> {
     Ok(())
 }
 pub fn prompt(config: &Config) -> ApiResult<bool> {
-    let title = wide("墨知 · 保存 Git Token");
+    prompt_named(config, "墨知 · 保存 Git Token")
+}
+pub fn delete(config: &Config) -> ApiResult<()> {
+    let target = wide(&target(config));
+    if unsafe { CredDeleteW(target.as_ptr(), CRED_TYPE_GENERIC, 0) } == 0 {
+        let code = unsafe { windows_sys::Win32::Foundation::GetLastError() };
+        if code != windows_sys::Win32::Foundation::ERROR_NOT_FOUND {
+            return Err(failure("无法删除凭据"));
+        }
+    }
+    Ok(())
+}
+pub fn prompt_named(config: &Config, caption: &str) -> ApiResult<bool> {
+    let title = wide(caption);
     let message = wide(&format!(
-        "仓库：{}\n账户：{}\n请在密码框输入 Git Token，将保存到当前 Windows 用户的凭据管理器。",
+        "服务：{}\n账户：{}\n请在密码框输入凭据，将保存到当前 Windows 用户的凭据管理器。",
         config.url, config.username
     ));
     let target = wide(&target(config));

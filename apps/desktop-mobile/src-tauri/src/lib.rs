@@ -1,3 +1,5 @@
+mod ai;
+mod ai_credentials;
 mod credentials;
 mod file_manager;
 mod ssh_agent;
@@ -89,6 +91,7 @@ struct OpenedVault {
 }
 fn activate(app: &tauri::AppHandle, state: &AppState, root: PathBuf) -> ApiResult<OpenedVault> {
     let mut guard = state.0.lock().map_err(failure)?;
+    app.state::<ai::AiState>().cancel_all();
     let root = root.canonicalize().map_err(failure)?;
     let key = vault::hash(root.to_string_lossy().as_bytes());
     let private = app
@@ -322,8 +325,11 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .manage(AppState::default())
+        .manage(ai::AiState::default())
         .invoke_handler(tauri::generate_handler![
             workspace::workspace,
+            ai::ai_request,
+            ai::ai_key,
             workspace::set_credentials,
             workspace::clone_vault,
             ssh_agent::select_ssh_key,

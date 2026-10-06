@@ -8,6 +8,7 @@ export function Icon({ name }: { name: Module | 'panel' }) {
     help: <><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 0 1 5 .5c0 2-2.5 2-2.5 4M12 17h.01"/></>,
     settings: <><path d="M9.67 4.14a2 2 0 0 1 1.76-1.04h1.14a2 2 0 0 1 1.76 1.04l.63 1.16a1 1 0 0 0 .88.5l1.33-.03a2 2 0 0 1 1.78 1l.57.99a2 2 0 0 1 .02 2.04l-.69 1.13a1 1 0 0 0 0 1.02l.69 1.13a2 2 0 0 1-.02 2.04l-.57.99a2 2 0 0 1-1.78 1l-1.33-.03a1 1 0 0 0-.88.5l-.63 1.16a2 2 0 0 1-1.76 1.04h-1.14a2 2 0 0 1-1.76-1.04l-.63-1.16a1 1 0 0 0-.88-.5l-1.33.03a2 2 0 0 1-1.78-1l-.57-.99a2 2 0 0 1-.02-2.04l.69-1.13a1 1 0 0 0 0-1.02l-.69-1.13a2 2 0 0 1 .02-2.04l.57-.99a2 2 0 0 1 1.78-1l1.33.03a1 1 0 0 0 .88-.5Z" transform="translate(0 .56)"/><circle cx="12" cy="12" r="3.2"/></>,
     panel: <><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M9 4v16"/></>,
+    ai: <><rect x="4" y="7" width="16" height="13" rx="3"/><path d="M12 3v4M8 12h.01M16 12h.01M8 16h8M1 11v5M23 11v5"/></>,
   };
   return <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{paths[name]}</svg>;
 }
@@ -36,7 +37,7 @@ export function AppShell({ active, disabled, onNavigate, sidebar, sidebarVisible
   function resize(next: number) { const value = Math.max(220, Math.min(360, next)); setWidth(value); savePreference('mozhi-sidebar-width', String(value)); }
   return <div className="app-shell">
     <nav className="module-rail" aria-label="主导航">
-      {(['home', 'notes', 'graph', 'help', 'settings'] as const).map(module => <button key={module} className={`rail-button ${module === active ? 'active' : ''} ${module === 'help' ? 'rail-bottom' : ''}`} aria-label={moduleLabels[module]} aria-current={module === active ? 'page' : undefined} disabled={disabled} onClick={() => onNavigate(module)}><Icon name={module}/><span className="rail-tooltip">{moduleLabels[module]}</span></button>)}
+      {(['home', 'notes', 'graph', 'ai', 'help', 'settings'] as const).map(module => <button key={module} className={`rail-button ${module === active ? 'active' : ''} ${module === 'help' ? 'rail-bottom' : ''}`} aria-label={moduleLabels[module]} aria-current={module === active ? 'page' : undefined} disabled={disabled} onClick={() => onNavigate(module)}><Icon name={module}/><span className="rail-tooltip">{moduleLabels[module]}</span></button>)}
     </nav>
     {sidebarVisible && <button className="sidebar-scrim" aria-label="收起模块侧栏" onClick={dismissSidebar}/>}
     <aside id="module-sidebar" aria-label={`${moduleLabels[active]}侧栏`} className="sidebar" hidden={!sidebarVisible} style={{ width }}>

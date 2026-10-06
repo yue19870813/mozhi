@@ -1,9 +1,9 @@
-export type Module = 'home' | 'notes' | 'graph' | 'help' | 'settings';
+export type Module = 'home' | 'notes' | 'graph' | 'ai' | 'help' | 'settings';
 export type HomePage = 'overview' | 'recent';
-export type SettingsPage = 'appearance' | 'vault' | 'sync' | 'recovery';
+export type SettingsPage = 'appearance' | 'vault' | 'sync' | 'recovery' | 'ai';
 export type HelpPage = 'intro' | 'shortcuts' | 'lab';
 export type EditorMode = 'source' | 'split' | 'preview';
-export const moduleLabels: Record<Module, string> = { home: '首页', notes: '我的笔记', graph: '知识图谱', help: '帮助', settings: '设置' };
+export const moduleLabels: Record<Module, string> = { home: '首页', notes: '我的笔记', graph: '知识图谱', ai: 'AI 助理', help: '帮助', settings: '设置' };
 
 /** The action must not run if saving fails or composition/another operation owns the session. */
 export async function afterSave(blocked: boolean, save: () => Promise<void>, action: () => Promise<void>) {

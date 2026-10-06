@@ -17,21 +17,25 @@ pub fn get(config: &Config) -> ApiResult<String> {
 }
 #[cfg(target_os = "macos")]
 pub fn prompt(config: &Config) -> ApiResult<bool> {
+    prompt_named(config, SERVICE, "保存 Git Token 到 macOS Keychain")
+}
+#[cfg(target_os = "macos")]
+pub fn prompt_named(config: &Config, service: &str, title: &str) -> ApiResult<bool> {
     use objc2::MainThreadMarker;
     use objc2_app_kit::{NSAlert, NSSecureTextField};
     use objc2_foundation::{NSPoint, NSRect, NSSize, NSString};
     let mtm = MainThreadMarker::new().ok_or_else(|| failure("凭据对话框必须在主线程运行"))?;
     let alert = NSAlert::new(mtm);
-    alert.setMessageText(&NSString::from_str("保存 Git Token 到 macOS Keychain"));
+    alert.setMessageText(&NSString::from_str(title));
     alert.setInformativeText(&NSString::from_str(&format!(
-        "仓库：{}\n账户：{}\nToken 仅由原生 Rust 读取，不进入网页、日志或设置文件。",
+        "服务：{}\n账户：{}\n凭据仅由原生 Rust 读取，不进入网页、日志或设置文件。",
         config.url, config.username
     )));
     alert.addButtonWithTitle(&NSString::from_str("保存"));
     alert.addButtonWithTitle(&NSString::from_str("取消"));
     let field = NSSecureTextField::new(mtm);
     field.setFrame(NSRect::new(NSPoint::new(0., 0.), NSSize::new(360., 28.)));
-    field.setPlaceholderString(Some(&NSString::from_str("输入 Token")));
+    field.setPlaceholderString(Some(&NSString::from_str("输入凭据")));
     alert.setAccessoryView(Some(&field));
     if alert.runModal() != 1000 {
         return Ok(false);
@@ -41,7 +45,7 @@ pub fn prompt(config: &Config) -> ApiResult<bool> {
         return Err(failure("Token 不能为空"));
     }
     security_framework::passwords::set_generic_password(
-        SERVICE,
+        service,
         &account(config),
         token.as_bytes(),
     )

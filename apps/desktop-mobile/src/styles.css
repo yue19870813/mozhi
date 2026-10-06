@@ -178,3 +178,29 @@ summary { cursor:pointer; }
 .auto-sync-settings>label { display:flex; align-items:center; gap:8px; font-size:13px; }
 .auto-sync-settings .workspace-toolbar label { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
 .auto-sync-settings input[type=number] { width:88px; }
+.ai-page { padding:28px 30px; overflow:auto; height:100%; }
+.ai-header { display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:20px; }
+.ai-header h1 { font-size:24px; margin:0; }
+.ai-workbench { display:grid; grid-template-columns:minmax(240px,320px) minmax(0,1fr); gap:28px; margin-top:24px; }
+.ai-composer label,.ai-config-fields label,.ai-save-modal label { display:flex; flex-direction:column; gap:8px; font-size:13px; margin-bottom:16px; }
+.ai-composer textarea,.ai-composer input:not([type=checkbox]),.ai-config-fields input,.ai-save-modal textarea,.ai-save-modal input,.ai-save-modal select { width:100%; background:var(--panel); color:var(--text); border:1px solid var(--border); border-radius:6px; padding:10px; }
+.ai-composer textarea { min-height:150px; resize:vertical; }
+.ai-note-picker summary { font-size:13px; padding:10px 0; }
+.ai-note-options { max-height:260px; overflow:auto; margin-top:12px; }
+.ai-note-options label { flex-direction:row; align-items:flex-start; gap:8px; overflow-wrap:anywhere; }
+.ai-note-options small { display:block; color:var(--muted); margin-top:4px; }
+.ai-composer .ai-authorization { flex-direction:row; align-items:flex-start; line-height:1.7; }
+.ai-results { min-width:0; }
+.ai-preview { border-top:1px solid var(--border); padding-top:16px; }
+.ai-preview h2,.ai-message h2 { font-size:16px; overflow-wrap:anywhere; }
+.ai-preview p,.ai-preview summary { overflow-wrap:anywhere; }
+.ai-preview pre { font-size:12px; line-height:1.7; white-space:pre-wrap; overflow-wrap:anywhere; max-height:220px; overflow:auto; background:var(--panel); padding:12px; }
+.ai-message { padding:16px 0 24px; border-bottom:1px solid var(--border); }
+.ai-answer.markdown-preview { padding:0; overflow:visible; }
+.ai-answer { overflow-wrap:anywhere; }
+.ai-citations { display:flex; flex-wrap:wrap; gap:6px; margin:16px 0; }
+.ai-citations button { font-size:11px; overflow-wrap:anywhere; text-align:left; max-width:100%; }
+.ai-config-fields { max-width:600px; margin-top:24px; }
+.ai-save-modal { width:760px; }
+.ai-save-modal textarea { min-height:260px; resize:vertical; }
+@media(max-width:1000px) { .ai-workbench { grid-template-columns:minmax(0,1fr); } .ai-page { padding:20px 16px; } }

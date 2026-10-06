@@ -1,3 +1,4 @@
+pub mod ai;
 pub mod git_probe;
 pub mod search;
 pub mod vault;
