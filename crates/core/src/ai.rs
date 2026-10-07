@@ -4,7 +4,7 @@ use crate::{
     Error, Result,
 };
 use serde::{Deserialize, Serialize};
-use std::{collections::BTreeSet, fs, io::Write};
+use std::{collections::BTreeSet, io::Write};
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
@@ -122,7 +122,6 @@ pub fn save_generated(vault: &Vault, path: &str, body: &str) -> Result<()> {
     temporary
         .persist_noclobber(&destination)
         .map_err(|e| Error::Io(e.error))?;
-    fs::File::open(destination)?.sync_all()?;
     Ok(())
 }
 
@@ -165,6 +164,7 @@ impl SseParser {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::fs;
     #[test]
     fn validates_services_and_preserves_prefixes() {
         let config = |s: &str| Config {
