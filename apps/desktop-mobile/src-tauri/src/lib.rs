@@ -3,6 +3,7 @@ mod ai_credentials;
 mod credentials;
 mod file_manager;
 mod ssh_agent;
+mod vault_history;
 mod watcher;
 mod workspace;
 use mozhi_core::{
@@ -162,6 +163,14 @@ fn activate(app: &tauri::AppHandle, state: &AppState, root: PathBuf) -> ApiResul
         .to_string_lossy()
         .to_string();
     let saved_root = root.to_string_lossy().to_string();
+    vault_history::remember(&app.path().app_data_dir().map_err(failure)?, &saved_root)?;
+    vault::atomic_write(
+        &app.path()
+            .app_data_dir()
+            .map_err(failure)?
+            .join("last-vault.json"),
+        &serde_json::to_vec(&saved_root).unwrap(),
+    )?;
     let watcher = watcher::Watcher::start(app.clone(), &root, key.clone());
     let recovery_warnings = workspace::automatic_recovery_cleanup(&vault);
     *guard = Some(Active {
@@ -172,13 +181,6 @@ fn activate(app: &tauri::AppHandle, state: &AppState, root: PathBuf) -> ApiResul
         _watcher: watcher,
         recovery_warnings,
     });
-    vault::atomic_write(
-        &app.path()
-            .app_data_dir()
-            .map_err(failure)?
-            .join("last-vault.json"),
-        &serde_json::to_vec(&saved_root).unwrap(),
-    )?;
     Ok(OpenedVault {
         id: key,
         name,
@@ -202,34 +204,37 @@ async fn open_demo(app: tauri::AppHandle, state: State<'_, AppState>) -> ApiResu
                 }
             }
         }
-        let root = app
-            .path()
-            .app_data_dir()
-            .map_err(failure)?
-            .join("墨知示例笔记");
-        fs::create_dir_all(&root).map_err(failure)?;
-        for (name, content) in [
-            (
-                "欢迎使用.md",
-                include_str!("../../../../tests/fixtures/欢迎使用.md"),
-            ),
-            (
-                "中文输入检查.md",
-                include_str!("../../../../tests/fixtures/中文输入检查.md"),
-            ),
-            (
-                "项目计划.md",
-                include_str!("../../../../tests/fixtures/项目计划.md"),
-            ),
-        ] {
-            let path = root.join(name);
-            if !path.exists() {
-                vault::atomic_write(&path, content.as_bytes())?;
-            }
-        }
-        activate(&app, &state, root)
+        activate(&app, &state, demo_root(&app)?)
     })
     .await
+}
+fn demo_root(app: &tauri::AppHandle) -> ApiResult<PathBuf> {
+    let root = app
+        .path()
+        .app_data_dir()
+        .map_err(failure)?
+        .join("墨知示例笔记");
+    fs::create_dir_all(&root).map_err(failure)?;
+    for (name, content) in [
+        (
+            "欢迎使用.md",
+            include_str!("../../../../tests/fixtures/欢迎使用.md"),
+        ),
+        (
+            "中文输入检查.md",
+            include_str!("../../../../tests/fixtures/中文输入检查.md"),
+        ),
+        (
+            "项目计划.md",
+            include_str!("../../../../tests/fixtures/项目计划.md"),
+        ),
+    ] {
+        let path = root.join(name);
+        if !path.exists() {
+            vault::atomic_write(&path, content.as_bytes())?;
+        }
+    }
+    Ok(root)
 }
 #[tauri::command]
 async fn open_vault(
@@ -368,6 +373,7 @@ pub fn run() {
             ssh_agent::check_ssh_agent,
             open_demo,
             open_vault,
+            vault_history::vault_catalog,
             read_note,
             read_draft,
             save_draft,

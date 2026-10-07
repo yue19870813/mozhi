@@ -10,6 +10,7 @@ import { platform } from './platform';
 import brandLogo from './assets/brand-logo.png';
 import { SyncPanel } from './SyncPanel';
 import { RecoveryPanel } from './RecoveryPanel';
+import { VaultSettings } from './VaultSettings';
 import { AppShell, Icon, useSidebar } from './AppShell';
 import { HomePage } from './HomePage';
 import { AiAssistant, emptyAiSession, type AiSession } from './AiAssistant';
@@ -217,6 +218,7 @@ export default function App(){
     } catch (e) { setError(errorText(e)); }
   }
   async function openVault(){if(syncingRef.current)return;await run(async()=>{const opened=await api.openVault();if(opened){await adopt(opened);setModule('home');sidebar.dismiss();}});}
+  async function openKnownVault(id:string){if(syncingRef.current)return;await run(async()=>{await adopt(await api.openKnownVault(id));setStatus('已切换笔记库');});}
   function clearDrag(){dragSourceRef.current='';setDragSource('');setDropTarget(null);setDropTargetRow(null);}
   function dragOverFolder(event:React.DragEvent,folder:string,row:string|null=null){
     const source=dragSourceRef.current;
@@ -358,7 +360,7 @@ export default function App(){
     {aiVisited&&vault&&<div className="page-slot" hidden={module!=='ai'}><AiAssistant key={vault.id} vaultId={vault.id} notes={notes.length?notes:vault.entries.map(note=>({path:note.path,title:note.path.replace(/\.md$/i,'')}))} directories={tree.filter(entry=>entry.isDirectory).map(entry=>entry.path)} initial={aiSessions.current.get(vault.id)??emptyAiSession()} onSession={rememberAiSession} onOpen={next=>void navigate(next)} onSettings={()=>void selectSettings('ai')} summaryPath={summaryPath} onSave={async(next,body)=>{const saved=await run(async()=>{const result=await aiRequest<{indexWarning?:string}>(vault.id,{action:'save',path:next,body});autoSchedule.current.savedAt=Date.now();try{await reload();}catch{setError('笔记已保存，请重新打开笔记库刷新索引');}if(result.indexWarning)setError(result.indexWarning);setStatus(`已创建 ${next}`);return true;});return saved===true;}}/></div>}
     {module==='settings'&&settingsPage==='ai'&&<AiSettings/>}
     <section className="settings-page" hidden={tab!=='appearance'}><h1>外观</h1><p className="subtle">选择适合你的阅读与书写环境。</p><div className="setting-row"><span>主题</span><div className="segmented">{(['dark','light'] as const).map(value=><button key={value} aria-pressed={theme===value} className={theme===value?'selected':''} onClick={()=>setTheme(value)}>{value==='dark'?'深色':'浅色'}</button>)}</div></div></section>
-    <section className="settings-page" hidden={tab!=='vault'}><h1>笔记库</h1><p className="subtle">当前笔记库：{vault?.name}</p><div className="workspace-toolbar"><button disabled={busy||composing||!native||syncing} onClick={()=>void openVault()}>打开其他笔记库</button><button disabled={busy||composing||!native} onClick={()=>void run(async()=>{if(await workspace({action:'export'}))setStatus('笔记库已导出');})}>导出笔记库</button></div></section>
+    <section className="settings-page" hidden={tab!=='vault'}><h1>笔记库</h1><p className="subtle">当前笔记库：{vault?.name}</p><div className="workspace-toolbar"><button disabled={busy||composing||!native||syncing} onClick={()=>void openVault()}>打开其他笔记库</button><button disabled={busy||composing||!native} onClick={()=>void run(async()=>{if(await workspace({action:'export'}))setStatus('笔记库已导出');})}>导出笔记库</button></div>{tab==='vault'&&<VaultSettings currentId={vault?.id} disabled={busy||composing||syncing} onOpen={openKnownVault}/>}</section>
     <section className="help-page" hidden={tab!=='intro'}><h1>使用入门</h1><h2>把想法留在本机</h2><p>打开一个本地文件夹作为笔记库，在「我的笔记」中新建 Markdown 笔记和目录。</p><h2>专注书写</h2><p>源码、分栏与预览随时切换。输入会自动保存；保存失败或发现冲突时，请按页面提示协调版本。</p><h2>连接知识</h2><p>使用 [[笔记名称]] 建立引用，在关联信息中查看反向链接，在知识图谱中探索笔记之间的联系。</p><h2>同步与恢复</h2><p>在设置中配置 Git 同步、查看恢复记录或导出笔记库。</p></section>
     <section className="help-page" hidden={tab!=='shortcuts'}><h1>快捷键</h1><dl className="shortcut-list"><div><dt>搜索笔记</dt><dd>{platform.modifier} K</dd></div><div><dt>新建笔记</dt><dd>{platform.modifier} N</dd></div><div><dt>保存当前笔记</dt><dd>{platform.modifier} S</dd></div></dl></section>
     {tab==='recovery'&&<RecoveryPanel key={vault?.id} busy={busy||composing||syncing} run={run} onRestore={async id=>{const result=await workspace<{path:string}>({action:'restore',id});await reload();setStatus(`已恢复至 ${result.path}`);}}/>}

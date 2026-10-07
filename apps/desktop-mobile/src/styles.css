@@ -179,6 +179,14 @@ summary { cursor:pointer; }
 .auto-sync-settings .workspace-toolbar label { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
 .auto-sync-settings input[type=number] { width:88px; }
 .ai-page { padding:28px 30px; overflow:auto; height:100%; }
+.vault-history { max-width:900px; margin-top:32px; }
+.vault-history h2 { font-size:18px; margin:0 0 16px; }
+.vault-history-row { display:flex; align-items:center; gap:20px; padding:18px 0; border-top:1px solid var(--border); }
+.vault-history-copy { display:flex; flex-direction:column; gap:7px; flex:1; min-width:0; }
+.vault-history-copy strong { font-size:14px; overflow-wrap:anywhere; }
+.vault-history-copy small { color:var(--muted); font-size:12px; overflow-wrap:anywhere; }
+.vault-history-actions { display:flex; flex-wrap:wrap; gap:8px; flex-shrink:0; }
+@media(max-width:760px) { .vault-history-row { align-items:flex-start; flex-direction:column; gap:12px; } }
 .save-status .dot.status-pending { background:#ef6464; animation:status-breathe 1.6s ease-in-out infinite; }
 @keyframes status-breathe { 0%,100% { opacity:.55; box-shadow:0 0 0 0 #ef646400; } 50% { opacity:1; box-shadow:0 0 0 4px #ef646433; } }
 @media(prefers-reduced-motion:reduce) { .save-status .dot.status-pending { animation:none; } }

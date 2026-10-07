@@ -4,6 +4,7 @@ import ime from '../../../tests/fixtures/中文输入检查.md?raw';
 import plan from '../../../tests/fixtures/项目计划.md?raw';
 export type Note = { path: string; content: string; contentHash: string };
 export type Vault = { id: string; name: string; entries: { path: string; bytes: number }[]; skipped: string[] };
+export type VaultHistoryEntry = { id: string; name: string; path: string; demo: boolean; available: boolean };
 export type SearchResult = { hits: { path: string; title: string; excerpt: string }[]; elapsedMs: number; strategy: string };
 export const native = isTauri();
 const samples = new Map(Object.entries({ '欢迎使用.md': welcome, '中文输入检查.md': ime, '项目计划.md': plan }));
@@ -32,6 +33,9 @@ export const api = {
     return native ? invoke('open_demo') : { id: 'demo', name: '墨知示例笔记', entries: [...samples].map(([path, content]) => ({ path, bytes: new TextEncoder().encode(content).length })), skipped: [] };
   },
   async openVault(): Promise<Vault | null> { return native ? invoke('open_vault') : null; },
+  async vaultCatalog(): Promise<VaultHistoryEntry[]> { return native ? invoke('vault_catalog',{request:{action:'list'}}) : [{id:'demo',name:'墨知示例笔记',path:'',demo:true,available:true}]; },
+  async openKnownVault(id:string): Promise<Vault> { return native ? invoke('vault_catalog',{request:{action:'open',id}}) : api.openDemo(); },
+  async forgetVault(id:string): Promise<void> { if(native)await invoke('vault_catalog',{request:{action:'forget',id}}); },
   async read(path: string): Promise<Note> { return native ? call('read_note', { path }) : demoNote(path); },
   async readDraft(path: string): Promise<string | null> { return native ? call('read_draft', { path }) : drafts.get(path) ?? null; },
   async draft(path: string, content: string): Promise<void> { if (native) await call('save_draft', { path, content }); else drafts.set(path, content); },
