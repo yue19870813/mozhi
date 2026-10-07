@@ -14,6 +14,20 @@ describe('automatic sync', () => {
     data.set('mozhi-auto-sync-v1:a', JSON.stringify({ enabled:true, idleSeconds:-1, intervalMinutes:0 }));
     expect(readAutoSync(storage,'a')).toEqual(enabled);
   });
+  it('persists disabling and prevents every trigger after an in-flight sync completes', () => {
+    const data = new Map<string,string>();
+    const storage = { getItem: (key:string)=>data.get(key)??null, setItem: (key:string,value:string)=>{data.set(key,value);} };
+    writeAutoSync(storage,'a',enabled);
+    writeAutoSync(storage,'a',{...enabled,enabled:false});
+    const settings=readAutoSync(storage,'a');
+    const schedule=new AutoSyncSchedule(0);
+    schedule.savedAt=0;
+    expect(schedule.due(settings,999999,false)).toBe(false);
+    schedule.succeeded(999999);
+    schedule.savedAt=1000000;
+    expect(schedule.due(settings,1999999,false)).toBe(false);
+    expect(settings.enabled).toBe(false);
+  });
   it('defers opening sync while blocked and runs it once after becoming idle', () => {
     const schedule=new AutoSyncSchedule(0);
     expect(schedule.due(enabled,1000,true)).toBe(false);
