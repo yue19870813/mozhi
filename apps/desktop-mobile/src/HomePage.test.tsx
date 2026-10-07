@@ -1,4 +1,6 @@
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
+import { setLanguage } from './i18n';
+beforeEach(() => setLanguage('zh-CN'));
 import { renderToStaticMarkup } from 'react-dom/server';
 import { HomePage } from './HomePage';
 const actions = { onOpen: () => {}, onAll: () => {}, onNew: () => {}, onBrowse: () => {}, onTogglePin: () => {} };

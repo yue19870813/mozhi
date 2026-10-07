@@ -1,3 +1,4 @@
+import { t } from './i18n';
 import { invoke, isTauri } from '@tauri-apps/api/core';
 import welcome from '../../../tests/fixtures/欢迎使用.md?raw';
 import ime from '../../../tests/fixtures/中文输入检查.md?raw';
@@ -14,7 +15,7 @@ let activeVaultId = '';
 export function selectVault(id: string) { activeVaultId = id; }
 function call<T>(command: string, args: Record<string,unknown> = {}): Promise<T> { return invoke(command, { ...args, vaultId: activeVaultId }); }
 export async function workspace<T>(request: Record<string,unknown>): Promise<T> {
-  if (!native) throw new Error('此操作需要桌面应用；浏览器仅提供编辑界面演示');
+  if (!native) throw new Error(t("此操作需要桌面应用；浏览器仅提供编辑界面演示"));
   return call('workspace', { request });
 }
 export type ParsedNote = { path: string; id: string | null; title: string; tags: string[]; references: { raw: string; start: number; end: number; wiki: boolean; image: boolean; target: string | null; resolution: string }[]; issues: string[] };
@@ -25,15 +26,15 @@ export type AiConfig = { baseUrl: string; model: string };
 export type AiSource = { id: number; path: string; text: string; contentHash: string; truncated: boolean };
 export type AiPrepared = { id: string; vaultId: string; config: AiConfig; mode: string; question: string; sources: AiSource[]; authorized: boolean; history: {role:string;content:string}[] };
 export async function aiRequest<T>(vaultId: string, request: Record<string, unknown>): Promise<T> {
-  if(!native)throw new Error('AI 功能需要桌面应用');
+  if(!native)throw new Error(t("AI 功能需要桌面应用"));
   return invoke('ai_request', { vaultId, request });
 }
 export const api = {
   async openDemo(): Promise<Vault> {
-    return native ? invoke('open_demo') : { id: 'demo', name: '墨知示例笔记', entries: [...samples].map(([path, content]) => ({ path, bytes: new TextEncoder().encode(content).length })), skipped: [] };
+    return native ? invoke('open_demo') : { id: 'demo', name: t("墨知示例笔记"), entries: [...samples].map(([path, content]) => ({ path, bytes: new TextEncoder().encode(content).length })), skipped: [] };
   },
   async openVault(): Promise<Vault | null> { return native ? invoke('open_vault') : null; },
-  async vaultCatalog(): Promise<VaultHistoryEntry[]> { return native ? invoke('vault_catalog',{request:{action:'list'}}) : [{id:'demo',name:'墨知示例笔记',path:'',demo:true,available:true}]; },
+  async vaultCatalog(): Promise<VaultHistoryEntry[]> { return native ? invoke('vault_catalog',{request:{action:'list'}}) : [{id:'demo',name:t("墨知示例笔记"),path:'',demo:true,available:true}]; },
   async openKnownVault(id:string): Promise<Vault> { return native ? invoke('vault_catalog',{request:{action:'open',id}}) : api.openDemo(); },
   async forgetVault(id:string): Promise<void> { if(native)await invoke('vault_catalog',{request:{action:'forget',id}}); },
   async read(path: string): Promise<Note> { return native ? call('read_note', { path }) : demoNote(path); },
@@ -41,7 +42,7 @@ export const api = {
   async draft(path: string, content: string): Promise<void> { if (native) await call('save_draft', { path, content }); else drafts.set(path, content); },
   async save(note: Note, content: string): Promise<{ note: Note; indexWarning?: string }> {
     if (native) return call('save_note', { path: note.path, expectedContentHash: note.contentHash, content });
-    if (samples.get(note.path) !== note.contentHash) throw { code: 'CONTENT_CONFLICT', message: '内容版本发生变化' };
+    if (samples.get(note.path) !== note.contentHash) throw { code: 'CONTENT_CONFLICT', message: t("内容版本发生变化") };
     samples.set(note.path, content); drafts.set(note.path, content);
     return { note: demoNote(note.path) };
   },
@@ -55,6 +56,6 @@ export const api = {
   async aiKey(): Promise<boolean> { return invoke('ai_key'); },
   async checkSshAgent(): Promise<{ keyCount: number }> { return invoke('check_ssh_agent'); },
   async clone(config: SyncConfig, name: string): Promise<Vault | null> { return invoke('clone_vault', { config, name }); },
-  async probes(): Promise<unknown> { if (!native) throw new Error('请在桌面应用中运行 Rust 样本'); return invoke('run_probes'); },
+  async probes(): Promise<unknown> { if (!native) throw new Error(t("请在桌面应用中运行 Rust 样本")); return invoke('run_probes'); },
 };
 export const errorText = (error: unknown): string => error instanceof Error ? error.message : typeof error === 'object' && error && 'message' in error ? String(error.message) : String(error);

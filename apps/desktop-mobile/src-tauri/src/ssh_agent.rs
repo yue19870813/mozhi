@@ -75,10 +75,11 @@ mod macos {
     }
 
     pub(super) fn select(app: tauri::AppHandle) -> ApiResult<Option<AgentStatus>> {
-        let mut dialog = app
-            .dialog()
-            .file()
-            .set_title("选择 SSH 私钥（非 .pub 公钥）");
+        let mut dialog = app.dialog().file().set_title(crate::language::text(
+            "选择 SSH 私钥（非 .pub 公钥）",
+            "Choose SSH private key (not a .pub public key)",
+            "SSH 秘密鍵を選択（.pub 公開鍵以外）",
+        ));
         if let Some(home) = std::env::var_os("HOME") {
             let directory = std::path::PathBuf::from(home).join(".ssh");
             if directory.is_dir() {

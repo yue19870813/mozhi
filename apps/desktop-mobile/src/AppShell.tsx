@@ -1,6 +1,8 @@
+import { t, useLanguage } from './i18n';
 import { useEffect, useState, type ReactNode } from 'react';
 import { moduleLabels, readPreference, savePreference, type Module } from './navigation';
 export function Icon({ name }: { name: Module | 'panel' }) {
+  useLanguage();
   const paths = {
     home: <><path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1Z" /></>,
     notes: <><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 3v18m4-12h5m-5 4h5"/></>,
@@ -33,16 +35,17 @@ export function AppShell({ active, disabled, onNavigate, sidebar, sidebarVisible
   active: Module; disabled: boolean; onNavigate: (module: Module) => void;
   sidebar: ReactNode; sidebarVisible: boolean; dismissSidebar: () => void; children: ReactNode;
 }) {
+  useLanguage();
   const [width, setWidth] = useState(() => Math.max(220, Math.min(360, Number(readPreference('mozhi-sidebar-width', '256')) || 256)));
   function resize(next: number) { const value = Math.max(220, Math.min(360, next)); setWidth(value); savePreference('mozhi-sidebar-width', String(value)); }
   return <div className="app-shell">
-    <nav className="module-rail" aria-label="主导航">
-      {(['home', 'notes', 'graph', 'ai', 'help', 'settings'] as const).map(module => <button key={module} className={`rail-button ${module === active ? 'active' : ''} ${module === 'help' ? 'rail-bottom' : ''}`} aria-label={moduleLabels[module]} aria-current={module === active ? 'page' : undefined} disabled={disabled} onClick={() => onNavigate(module)}><Icon name={module}/><span className="rail-tooltip">{moduleLabels[module]}</span></button>)}
+    <nav className="module-rail" aria-label={t("主导航")}>
+      {(['home', 'notes', 'graph', 'ai', 'help', 'settings'] as const).map(module => <button key={module} className={`rail-button ${module === active ? 'active' : ''} ${module === 'help' ? 'rail-bottom' : ''}`} aria-label={t(moduleLabels[module])} aria-current={module === active ? 'page' : undefined} disabled={disabled} onClick={() => onNavigate(module)}><Icon name={module}/><span className="rail-tooltip">{t(moduleLabels[module])}</span></button>)}
     </nav>
-    {sidebarVisible && <button className="sidebar-scrim" aria-label="收起模块侧栏" onClick={dismissSidebar}/>}
-    <aside id="module-sidebar" aria-label={`${moduleLabels[active]}侧栏`} className="sidebar" hidden={!sidebarVisible} style={{ width }}>
+    {sidebarVisible && <button className="sidebar-scrim" aria-label={t("收起模块侧栏")} onClick={dismissSidebar}/>}
+    <aside id="module-sidebar" aria-label={t("{0}侧栏", t(moduleLabels[active]))} className="sidebar" hidden={!sidebarVisible} style={{ width }}>
       {sidebar}
-      <div className="sidebar-resizer" role="separator" aria-label="调整侧栏宽度" aria-orientation="vertical" aria-valuemin={220} aria-valuemax={360} aria-valuenow={width} tabIndex={0}
+      <div className="sidebar-resizer" role="separator" aria-label={t("调整侧栏宽度")} aria-orientation="vertical" aria-valuemin={220} aria-valuemax={360} aria-valuenow={width} tabIndex={0}
         onKeyDown={event => { if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') { event.preventDefault(); resize(width + (event.key === 'ArrowRight' ? 10 : -10)); } }}
         onPointerDown={event => { event.currentTarget.setPointerCapture(event.pointerId); }}
         onPointerMove={event => { if (event.currentTarget.hasPointerCapture(event.pointerId)) resize(event.clientX - 56); }}

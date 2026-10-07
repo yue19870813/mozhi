@@ -1,4 +1,6 @@
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
+import { setLanguage } from './i18n';
+beforeEach(() => setLanguage('zh-CN'));
 import { renderToStaticMarkup } from 'react-dom/server';
 import { Answer, AiAssistant, citationParts, emptyAiSession } from './AiAssistant';
 import type { AiSource } from './api';

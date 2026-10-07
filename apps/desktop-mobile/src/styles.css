@@ -180,6 +180,9 @@ summary { cursor:pointer; }
 .auto-sync-settings input[type=number] { width:88px; }
 .ai-page { padding:28px 30px; overflow:auto; height:100%; }
 .vault-history { max-width:900px; margin-top:32px; }
+.setting-row select { max-width:100%; padding:8px 12px; background:var(--panel); color:var(--text); border:1px solid var(--border); border-radius:6px; }
+.workspace-toolbar button,.vault-history-actions button { max-width:100%; overflow-wrap:anywhere; }
+.setting-row { flex-wrap:wrap; gap:12px; }
 .vault-history h2 { font-size:18px; margin:0 0 16px; }
 .vault-history-row { display:flex; align-items:center; gap:20px; padding:18px 0; border-top:1px solid var(--border); }
 .vault-history-copy { display:flex; flex-direction:column; gap:7px; flex:1; min-width:0; }

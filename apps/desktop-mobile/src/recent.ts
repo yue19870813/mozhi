@@ -1,3 +1,4 @@
+import { t, dateTime } from './i18n';
 export type RecentNote = { path: string; title: string; openedAt: number };
 type Storage = Pick<globalThis.Storage, 'getItem' | 'setItem'>;
 const key = (vaultId: string) => `mozhi-recent-v1:${vaultId}`;
@@ -25,9 +26,9 @@ export function pruneRecent(entries: RecentNote[], paths: string[], skipped: str
 }
 export function relativeTime(time: number): string {
   const minutes = Math.max(0, Math.floor((Date.now() - time) / 60000));
-  if (minutes < 1) return '刚刚';
-  if (minutes < 60) return `${minutes} 分钟前`;
-  if (minutes < 1440) return `${Math.floor(minutes / 60)} 小时前`;
-  if (minutes < 10080) return `${Math.floor(minutes / 1440)} 天前`;
-  return new Date(time).toLocaleDateString();
+  if (minutes < 1) return t("刚刚");
+  if (minutes < 60) return t("{0} 分钟前", minutes);
+  if (minutes < 1440) return t("{0} 小时前", Math.floor(minutes / 60));
+  if (minutes < 10080) return t("{0} 天前", Math.floor(minutes / 1440));
+  return dateTime(time, true);
 }

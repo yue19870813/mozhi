@@ -106,11 +106,18 @@ pub fn delete(config: &Config) -> ApiResult<()> {
     Ok(())
 }
 pub fn prompt_named(config: &Config, caption: &str) -> ApiResult<bool> {
+    prompt_localized(
+        config,
+        caption,
+        &format!(
+            "服务：{}\n账户：{}\n请在密码框输入凭据，将保存到当前 Windows 用户的凭据管理器。",
+            config.url, config.username
+        ),
+    )
+}
+pub fn prompt_localized(config: &Config, caption: &str, instructions: &str) -> ApiResult<bool> {
     let title = wide(caption);
-    let message = wide(&format!(
-        "服务：{}\n账户：{}\n请在密码框输入凭据，将保存到当前 Windows 用户的凭据管理器。",
-        config.url, config.username
-    ));
+    let message = wide(instructions);
     let target = wide(&target(config));
     let initial = wide(&config.username);
     if initial.len() > 514 {

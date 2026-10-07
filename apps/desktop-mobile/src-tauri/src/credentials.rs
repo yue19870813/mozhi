@@ -17,7 +17,15 @@ pub fn get(config: &Config) -> ApiResult<String> {
 }
 #[cfg(target_os = "macos")]
 pub fn prompt(config: &Config) -> ApiResult<bool> {
-    prompt_named(config, SERVICE, "保存 Git Token 到 macOS Keychain")
+    prompt_named(
+        config,
+        SERVICE,
+        crate::language::text(
+            "保存 Git Token 到 macOS Keychain",
+            "Save Git token to macOS Keychain",
+            "Git Token を macOS Keychain に保存",
+        ),
+    )
 }
 #[cfg(target_os = "macos")]
 pub fn prompt_named(config: &Config, service: &str, title: &str) -> ApiResult<bool> {
@@ -28,14 +36,28 @@ pub fn prompt_named(config: &Config, service: &str, title: &str) -> ApiResult<bo
     let alert = NSAlert::new(mtm);
     alert.setMessageText(&NSString::from_str(title));
     alert.setInformativeText(&NSString::from_str(&format!(
-        "服务：{}\n账户：{}\n凭据仅由原生 Rust 读取，不进入网页、日志或设置文件。",
-        config.url, config.username
+        "{}: {}\n{}: {}\n{}",
+        crate::language::text("服务", "Service", "サービス"),
+        config.url,
+        crate::language::text("账户", "Account", "アカウント"),
+        config.username,
+        crate::language::text("凭据仅由原生 Rust 读取，不进入网页、日志或设置文件。", "Credentials are read only by native Rust, never by web pages, logs, or settings files.", "資格情報はネイティブ Rust のみが読み取り、ウェブ画面、ログ、設定ファイルには保存しません。")
     )));
-    alert.addButtonWithTitle(&NSString::from_str("保存"));
-    alert.addButtonWithTitle(&NSString::from_str("取消"));
+    alert.addButtonWithTitle(&NSString::from_str(crate::language::text(
+        "保存", "Save", "保存",
+    )));
+    alert.addButtonWithTitle(&NSString::from_str(crate::language::text(
+        "取消",
+        "Cancel",
+        "キャンセル",
+    )));
     let field = NSSecureTextField::new(mtm);
     field.setFrame(NSRect::new(NSPoint::new(0., 0.), NSSize::new(360., 28.)));
-    field.setPlaceholderString(Some(&NSString::from_str("输入凭据")));
+    field.setPlaceholderString(Some(&NSString::from_str(crate::language::text(
+        "输入凭据",
+        "Enter credential",
+        "資格情報を入力",
+    ))));
     alert.setAccessoryView(Some(&field));
     if alert.runModal() != 1000 {
         return Ok(false);
@@ -71,9 +93,17 @@ pub fn get(config: &Config) -> ApiResult<String> {
 }
 #[cfg(windows)]
 pub fn prompt(config: &Config) -> ApiResult<bool> {
-    mozhi_windows::credentials::prompt(&mozhi_windows::Config {
-        url: config.url.clone(),
-        username: config.username.clone(),
-    })
+    mozhi_windows::credentials::prompt_localized(
+        &mozhi_windows::Config {
+            url: config.url.clone(),
+            username: config.username.clone(),
+        },
+        crate::language::text(
+            "墨知 · 保存 Git Token",
+            "MoZhi · Save Git token",
+            "MoZhi · Git Token を保存",
+        ),
+        &crate::language::credential_instructions(&config.url, &config.username),
+    )
     .map_err(failure)
 }

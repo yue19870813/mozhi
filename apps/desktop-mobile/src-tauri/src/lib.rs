@@ -2,6 +2,7 @@ mod ai;
 mod ai_credentials;
 mod credentials;
 mod file_manager;
+mod language;
 mod ssh_agent;
 mod vault_history;
 mod watcher;
@@ -246,7 +247,11 @@ async fn open_vault(
         let Some(path) = app
             .dialog()
             .file()
-            .set_title("选择 Markdown 笔记目录")
+            .set_title(language::text(
+                "选择 Markdown 笔记目录",
+                "Choose Markdown vault folder",
+                "Markdown 保管庫のフォルダーを選択",
+            ))
             .blocking_pick_folder()
         else {
             return Ok(None);
@@ -372,6 +377,8 @@ pub fn run() {
             ssh_agent::select_ssh_key,
             ssh_agent::check_ssh_agent,
             open_demo,
+            language::system_locale,
+            language::ui_language,
             open_vault,
             vault_history::vault_catalog,
             read_note,

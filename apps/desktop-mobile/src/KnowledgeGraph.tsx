@@ -1,3 +1,4 @@
+import { t, useLanguage } from './i18n';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import cytoscape, { type Core, type Layouts } from 'cytoscape';
 import { workspace, errorText, native, type ParsedNote } from './api';
@@ -21,6 +22,7 @@ type Snapshot = {
 export function KnowledgeGraph({ current, revision, onOpen, active, filters, theme }: {
   current: string; revision: number; onOpen: (path: string) => void; active: boolean; filters: GraphFilterState; theme: string;
 }) {
+  useLanguage();
   const host = useRef<HTMLDivElement>(null), tooltip = useRef<HTMLDivElement>(null);
   const cy = useRef<Core | null>(null), layout = useRef<Layouts | null>(null);
   const interaction = useRef<ReturnType<typeof bindGraphInteractions> | null>(null);
@@ -43,10 +45,10 @@ export function KnowledgeGraph({ current, revision, onOpen, active, filters, the
   }, []);
 
   useEffect(() => {
-    if (!native) { setMessage('知识图谱需要桌面应用；浏览器仅提供编辑界面演示。'); return; }
+    if (!native) { setMessage(t("知识图谱需要桌面应用；浏览器仅提供编辑界面演示。")); return; }
     let disposed = false;
     const timer = setTimeout(() => {
-      setMessage('正在绘制知识星图…');
+      setMessage(t("正在绘制知识星图…"));
       workspace<Data>({ action: 'graph', query: JSON.parse(query) }).then(data => {
         if (disposed || !host.current) return;
         const previous = snapshot.current?.query === query ? snapshot.current : null;
@@ -90,7 +92,7 @@ export function KnowledgeGraph({ current, revision, onOpen, active, filters, the
           fitGraph(graph);
         }
         interaction.current.select(previous?.selected ?? '');
-        setMessage(`${data.nodes.length} 篇笔记 · ${data.edges.length} 条关系${data.truncated ? ' · 已按性能预算截断，请增加筛选条件' : ''}`);
+        setMessage(t("{0} 篇笔记 · {1} 条关系{2}", data.nodes.length, data.edges.length, data.truncated ? t(' · 已按性能预算截断，请增加筛选条件') : ''));
       }).catch(error => { if (!disposed) setMessage(errorText(error)); });
     }, 200);
     return () => {
@@ -159,29 +161,29 @@ export function KnowledgeGraph({ current, revision, onOpen, active, filters, the
   const selectedDetails = details.get(selected);
   return <section className="graph-panel knowledge-graph" data-graph-theme={theme}>
     <div className="section-heading graph-heading">
-      <div><p className="graph-eyebrow">连接你的思考</p><h1>{center ? '局部图谱' : '知识星图'}</h1></div>
-      <div className="graph-size-legend" title="按整个笔记库的不同引用来源计算；同一篇重复引用只计一次">
-        <span className="legend-orbs" aria-hidden="true"><i/><i/><i/></span><span>全库被引用笔记数</span>
+      <div><p className="graph-eyebrow">{t("连接你的思考")}</p><h1>{center ? t("局部图谱") : t("知识星图")}</h1></div>
+      <div className="graph-size-legend" title={t("按整个笔记库的不同引用来源计算；同一篇重复引用只计一次")}>
+        <span className="legend-orbs" aria-hidden="true"><i/><i/><i/></span><span>{t("全库被引用笔记数")}</span>
       </div>
     </div>
     <div className="graph-stage" onMouseLeave={() => interaction.current?.clearHover()}>
-      <div className="graph-canvas" ref={host} role="img" aria-label="笔记引用关系图，节点越大表示被更多笔记引用"/>
-      <div className="graph-stage-caption" aria-hidden="true"><span/> {center ? '局部连接' : '全局连接'}</div>
+      <div className="graph-canvas" ref={host} role="img" aria-label={t("笔记引用关系图，节点越大表示被更多笔记引用")}/>
+      <div className="graph-stage-caption" aria-hidden="true"><span/> {center ? t("局部连接") : t("全局连接")}</div>
       {hover && <div className="graph-tooltip" ref={tooltip} role="tooltip">
-        <strong>{hover.title}</strong><span>{hover.id}</span><em>被 {hover.count} 篇笔记引用 · 全库统计</em>
+        <strong>{hover.title}</strong><span>{hover.id}</span><em>{t("被")} {hover.count} {t("篇笔记引用 · 全库统计")}</em>
       </div>}
-      <div className="graph-controls" aria-label="图谱操作">
-        <button disabled={!native} onClick={() => { if (cy.current) fitGraph(cy.current); }}>适应视图</button>
-        <button disabled={!native} onClick={() => layout.current?.stop()}>停止布局</button>
+      <div className="graph-controls" aria-label={t("图谱操作")}>
+        <button disabled={!native} onClick={() => { if (cy.current) fitGraph(cy.current); }}>{t("适应视图")}</button>
+        <button disabled={!native} onClick={() => layout.current?.stop()}>{t("停止布局")}</button>
         <span className="graph-control-divider" aria-hidden="true"/>
-        <button disabled={!native} onClick={() => void exportPng(false)}>导出当前视野</button>
-        <button disabled={!native} onClick={() => void exportPng(true)}>导出完整图谱</button>
+        <button disabled={!native} onClick={() => void exportPng(false)}>{t("导出当前视野")}</button>
+        <button disabled={!native} onClick={() => void exportPng(true)}>{t("导出完整图谱")}</button>
       </div>
     </div>
     <div className="graph-overlay">
-      {selectedDetails ? <div className="graph-selection"><span><strong>{selectedDetails.title}</strong><small title={selected}>{selected} · 被 {selectedDetails.count} 篇笔记引用</small></span><button onClick={() => onOpen(selected)}>打开笔记 ↗</button></div>
-        : <span className="graph-gesture-hint">悬停探索关联 · 单击选中 · 双击打开笔记</span>}
-      <p className="graph-status" role="status">{message}</p>
+      {selectedDetails ? <div className="graph-selection"><span><strong>{selectedDetails.title}</strong><small title={selected}>{selected} {t("· 被")} {selectedDetails.count} {t("篇笔记引用")}</small></span><button onClick={() => onOpen(selected)}>{t("打开笔记 ↗")}</button></div>
+        : <span className="graph-gesture-hint">{t("悬停探索关联 · 单击选中 · 双击打开笔记")}</span>}
+      <p className="graph-status" role="status">{t(message)}</p>
     </div>
   </section>;
 }

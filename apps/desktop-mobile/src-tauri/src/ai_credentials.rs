@@ -22,7 +22,11 @@ pub fn prompt(config: &Config) -> ApiResult<bool> {
             username: "ai".into(),
         },
         SERVICE,
-        "墨知 · 保存模型 API Key",
+        crate::language::text(
+            "墨知 · 保存模型 API Key",
+            "MoZhi · Save model API key",
+            "MoZhi · モデル API キーを保存",
+        ),
     )
 }
 #[cfg(target_os = "macos")]
@@ -46,8 +50,16 @@ pub fn get(config: &Config) -> ApiResult<String> {
 }
 #[cfg(windows)]
 pub fn prompt(config: &Config) -> ApiResult<bool> {
-    mozhi_windows::credentials::prompt_named(&windows_config(config), "墨知 · 保存模型 API Key")
-        .map_err(failure)
+    mozhi_windows::credentials::prompt_localized(
+        &windows_config(config),
+        crate::language::text(
+            "墨知 · 保存模型 API Key",
+            "MoZhi · Save model API key",
+            "MoZhi · モデル API キーを保存",
+        ),
+        &crate::language::credential_instructions(&config.service()?, "ai"),
+    )
+    .map_err(failure)
 }
 #[cfg(windows)]
 pub fn delete(config: &Config) -> ApiResult<()> {

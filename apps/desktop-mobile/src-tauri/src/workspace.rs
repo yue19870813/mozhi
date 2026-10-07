@@ -364,7 +364,10 @@ pub async fn workspace(
                     let Some(path) = app
                         .dialog()
                         .file()
-                        .add_filter("图片", &["png", "jpg", "jpeg", "gif", "webp"])
+                        .add_filter(
+                            crate::language::text("图片", "Images", "画像"),
+                            &["png", "jpg", "jpeg", "gif", "webp"],
+                        )
                         .blocking_pick_file()
                     else {
                         return Ok(Value::Null);
@@ -479,7 +482,11 @@ pub async fn clone_vault(
         let Some(parent) = app
             .dialog()
             .file()
-            .set_title("选择新笔记库的父目录")
+            .set_title(crate::language::text(
+                "选择新笔记库的父目录",
+                "Choose parent folder for new vault",
+                "新しい保管庫の親フォルダーを選択",
+            ))
             .blocking_pick_folder()
         else {
             return Ok(None);

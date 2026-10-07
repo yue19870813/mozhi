@@ -1,3 +1,4 @@
+import { t, useLanguage } from './i18n';
 import { useEffect, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -16,14 +17,16 @@ function wikiLinks(){return (tree:Root)=>{
   }visit(tree);
 };}
 function Attachment({path,src,alt}:{path:string;src?:string;alt?:string}){
+  useLanguage();
   const [url,setUrl]=useState('');
   useEffect(()=>{let active=true;setUrl('');if(!native||!src||/^[a-z][a-z\d+.-]*:/i.test(src)||src.startsWith('/'))return;
     try{const parts=path.split('/').slice(0,-1);for(const part of decodeURIComponent(src).split('/')){if(part==='..'){if(!parts.length)return;parts.pop();}else if(part&&part!=='.')parts.push(part);}const relative=parts.join('/');if(!relative.startsWith('attachments/'))return;workspace<string>({action:'attachment',path:relative}).then(data=>{if(active)setUrl(data);}).catch(()=>{});}catch{/* Invalid paths remain placeholders. */}
     return()=>{active=false;};
   },[src,path]);
-  return url?<img src={url} alt={alt??'图片附件'}/>:<span className="image-placeholder">图片附件：{alt||src||'不可用'}（仅加载库内附件）</span>;
+  return url?<img src={url} alt={alt??t("图片附件")}/>:<span className="image-placeholder">{t("图片附件：")}{alt||src||t("不可用")}{t("（仅加载库内附件）")}</span>;
 }
 export function Preview({content,path='',onOpen}:{content:string;path?:string;onOpen:(path:string,wiki?:boolean)=>void}){
+  useLanguage();
   return <article className="markdown-preview"><ReactMarkdown remarkPlugins={[remarkGfm,wikiLinks]} skipHtml components={{
     a:({href,children})=><button className="inline-link" title={href} onClick={()=>{if(!href)return;try{if(href.startsWith('#mozhi-wiki=')){onOpen(decodeURIComponent(href.slice(12)),true);}else if(!/^[a-z][a-z\d+.-]*:/i.test(href)&&!href.startsWith('/'))onOpen(decodeURIComponent(href));}catch{/* Malformed URLs are inert. */}}}>{children}</button>,
     img:({src,alt})=><Attachment path={path} src={src} alt={alt}/>,
