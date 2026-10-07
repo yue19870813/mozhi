@@ -507,14 +507,43 @@ pub fn synchronize(
     progress: impl FnMut(&str),
 ) -> Result<SyncState> {
     config.validate()?;
-    synchronize_inner(root, private, config, token, progress)
+    let mut progress = progress;
+    synchronize_guarded(root, private, config, token, |phase| {
+        progress(phase);
+        Ok(())
+    })
 }
+/// The caller holds the worktree lock initially and reacquires it on `integrating`.
+/// Only `fetching` and `pushing` permit releasing that lock for concurrent readers.
+pub fn synchronize_guarded(
+    root: &Path,
+    private: &Path,
+    config: &Config,
+    token: &str,
+    progress: impl FnMut(&str) -> Result<()>,
+) -> Result<SyncState> {
+    config.validate()?;
+    synchronize_inner_guarded(root, private, config, token, progress)
+}
+#[cfg(test)]
 fn synchronize_inner(
     root: &Path,
     private: &Path,
     config: &Config,
     token: &str,
     mut progress: impl FnMut(&str),
+) -> Result<SyncState> {
+    synchronize_inner_guarded(root, private, config, token, |phase| {
+        progress(phase);
+        Ok(())
+    })
+}
+fn synchronize_inner_guarded(
+    root: &Path,
+    private: &Path,
+    config: &Config,
+    token: &str,
+    mut progress: impl FnMut(&str) -> Result<()>,
 ) -> Result<SyncState> {
     let result = (|| {
         let repo = repository(root)?;
@@ -543,11 +572,11 @@ fn synchronize_inner(
                 return Ok(recovered);
             }
         }
-        progress("committing");
+        progress("committing")?;
         commit_local(&repo)?;
         // Anonymous remote prevents a changed origin or embedded credentials from being used.
         for attempt in 0..3 {
-            progress("fetching");
+            progress("fetching")?;
             let mut remote = repo.remote_anonymous(&config.url)?;
             let mut fetch = FetchOptions::new();
             fetch.remote_callbacks(callbacks(config, token));
@@ -562,13 +591,13 @@ fn synchronize_inner(
                     None,
                 )
                 .map_err(remote_error)?;
+            progress("integrating")?;
             let remote_id =
                 repo.refname_to_id(&format!("refs/remotes/mozhi-sync/{}", config.branch))?;
             let local = repo.head()?.peel_to_commit()?;
             let theirs = repo.find_commit(remote_id)?;
             validate_tree(&repo, &theirs.tree()?)?;
             if local.id() != remote_id && !repo.graph_descendant_of(local.id(), remote_id)? {
-                progress("integrating");
                 let mut pending = Pending {
                     local: local.id().to_string(),
                     remote: remote_id.to_string(),
@@ -600,7 +629,7 @@ fn synchronize_inner(
                 write_pending(private, &pending)?;
                 install(&repo, private, &pending)?;
             }
-            progress("pushing");
+            progress("pushing")?;
             let mut options = PushOptions::new();
             options.follow_redirects(git2::RemoteRedirect::None);
             let rejected = std::sync::Arc::new(std::sync::Mutex::new(false));
@@ -746,7 +775,13 @@ mod tests {
         };
         // Only this private test helper bypasses the production HTTPS URL guard.
         commit(&a, "新增.md", "新增正文");
-        synchronize_inner(&a_path, &private_a, &config, "", |_| {}).unwrap();
+        let mut phases = Vec::new();
+        synchronize_inner_guarded(&a_path, &private_a, &config, "", |phase| {
+            phases.push(phase.to_owned());
+            Ok(())
+        })
+        .unwrap();
+        assert_eq!(phases, ["committing", "fetching", "integrating", "pushing"]);
         synchronize_inner(&b_path, &private_b, &config, "", |_| {}).unwrap();
         assert_eq!(
             fs::read_to_string(b_path.join("新增.md")).unwrap(),

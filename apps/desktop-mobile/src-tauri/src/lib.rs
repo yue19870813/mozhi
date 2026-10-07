@@ -29,7 +29,10 @@ struct Active {
     recovery_warnings: Vec<String>,
 }
 #[derive(Clone, Default)]
-struct AppState(Arc<Mutex<Option<Active>>>);
+struct AppState(
+    Arc<Mutex<Option<Active>>>,
+    Arc<std::sync::atomic::AtomicBool>,
+);
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 struct ApiError {
@@ -65,11 +68,33 @@ async fn blocking<T: Send + 'static>(
         .map_err(failure)?
 }
 fn with_active<T>(state: &AppState, f: impl FnOnce(&mut Active) -> ApiResult<T>) -> ApiResult<T> {
+    with_access(state, false, f)
+}
+fn with_access<T>(
+    state: &AppState,
+    read: bool,
+    f: impl FnOnce(&mut Active) -> ApiResult<T>,
+) -> ApiResult<T> {
     let mut guard = state
         .0
         .lock()
         .map_err(|_| failure("笔记库正在执行操作，请稍后重试"))?;
     let active = guard.as_mut().ok_or_else(|| failure("请先打开笔记库"))?;
+    if !read && state.1.load(std::sync::atomic::Ordering::SeqCst) {
+        return Err(failure("同步期间暂不能修改笔记库，请等待同步完成"));
+    }
+    // Network phases release vault.lock; sync.lock still excludes all mutations.
+    let sync_lock = fs::OpenOptions::new()
+        .create(true)
+        .truncate(false)
+        .read(true)
+        .write(true)
+        .open(active.private.join("sync.lock"))
+        .map_err(failure)?;
+    if !read {
+        fs2::FileExt::try_lock_shared(&sync_lock)
+            .map_err(|_| failure("笔记库正在同步，请等待同步完成后修改"))?;
+    }
     let lock = fs::OpenOptions::new()
         .create(true)
         .truncate(false)
@@ -77,8 +102,12 @@ fn with_active<T>(state: &AppState, f: impl FnOnce(&mut Active) -> ApiResult<T>)
         .write(true)
         .open(active.private.join("vault.lock"))
         .map_err(failure)?;
-    fs2::FileExt::try_lock_exclusive(&lock)
-        .map_err(|_| failure("笔记库正在被另一个窗口或进程操作"))?;
+    let result = if read {
+        fs2::FileExt::lock_shared(&lock)
+    } else {
+        fs2::FileExt::try_lock_exclusive(&lock)
+    };
+    result.map_err(|_| failure("笔记库正在被另一个窗口或进程操作"))?;
     f(active)
 }
 #[derive(Serialize)]
@@ -91,6 +120,9 @@ struct OpenedVault {
 }
 fn activate(app: &tauri::AppHandle, state: &AppState, root: PathBuf) -> ApiResult<OpenedVault> {
     let mut guard = state.0.lock().map_err(failure)?;
+    if state.1.load(std::sync::atomic::Ordering::SeqCst) {
+        return Err(failure("请等待同步完成后切换笔记库"));
+    }
     app.state::<ai::AiState>().cancel_all();
     let root = root.canonicalize().map_err(failure)?;
     let key = vault::hash(root.to_string_lossy().as_bytes());
@@ -223,7 +255,7 @@ async fn open_vault(
 async fn read_note(state: State<'_, AppState>, vault_id: String, path: String) -> ApiResult<Note> {
     let state = state.inner().clone();
     blocking(move || {
-        with_active(&state, |a| {
+        with_access(&state, true, |a| {
             workspace::identity(a, &vault_id)?;
             Ok(a.vault.read(&path)?)
         })
@@ -238,7 +270,7 @@ async fn read_draft(
 ) -> ApiResult<Option<String>> {
     let state = state.inner().clone();
     blocking(move || {
-        with_active(&state, |a| {
+        with_access(&state, true, |a| {
             workspace::identity(a, &vault_id)?;
             Ok(a.vault.read_draft(&path)?)
         })
