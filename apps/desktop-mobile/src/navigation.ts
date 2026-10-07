@@ -1,6 +1,6 @@
 export type Module = 'home' | 'notes' | 'graph' | 'ai' | 'help' | 'settings';
 export type HomePage = 'overview' | 'recent';
-export type SettingsPage = 'appearance' | 'vault' | 'sync' | 'recovery' | 'ai';
+export type SettingsPage = 'appearance' | 'vault' | 'sync' | 'recovery' | 'ai' | 'about';
 export type HelpPage = 'intro' | 'shortcuts' | 'lab';
 export type EditorMode = 'source' | 'split' | 'preview';
 export const moduleLabels: Record<Module, string> = { home: '首页', notes: '我的笔记', graph: '知识图谱', ai: 'AI 助理', help: '帮助', settings: '设置' };

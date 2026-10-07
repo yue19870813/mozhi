@@ -1,6 +1,15 @@
 // Source text remains the Simplified Chinese fallback. Note content is never translated.
 export const translations: Record<string, readonly [string, string]> = {
   '语言': ['Language', '言語'],
+  '关于': ['About', 'このアプリについて'],
+  '本地优先的 Markdown 笔记应用': ['A local-first Markdown notes app', 'ローカル優先の Markdown ノートアプリ'],
+  '让记录沉淀为相互连接的知识。': ['Turn your notes into connected knowledge.', '記録を、つながる知識へ。'],
+  '笔记以 Markdown 文件保存在本地，通过标签、双向链接和知识图谱连接思考，适合个人知识管理、学习记录与项目资料整理。': ['Keep notes locally as Markdown files and connect ideas through tags, bidirectional links, and a knowledge graph. For personal knowledge, learning, and project notes.', 'ノートを Markdown ファイルとしてローカルに保存し、タグ、双方向リンク、ナレッジグラフで思考をつなぎます。個人の知識管理、学習記録、プロジェクト資料の整理に。'],
+  '可使用自己的 Git 仓库同步，并按需配置 AI 助理进行问答、总结与生成笔记。': ['Sync with your own Git repository and optionally configure an AI assistant for questions, summaries, and note generation.', '自分の Git リポジトリで同期し、必要に応じて AI アシスタントを設定して質問、要約、ノート生成を利用できます。'],
+  '应用版本': ['App version', 'アプリのバージョン'],
+  '运行环境': ['Environment', '実行環境'],
+  '浏览器演示': ['Browser demo', 'ブラウザデモ'],
+  '开源许可证': ['Open-source license', 'オープンソースライセンス'],
   'AI 笔记.md': ['AI Note.md', 'AI ノート.md'],
   'Windows 凭据管理器中没有可用 Token，请先设置凭据': ['No token in Windows Credential Manager. Set credentials first.', 'Windows 資格情報マネージャーに Token がありません。先に設定してください。'],
   'Windows 凭据格式无效，请重新设置 Token': ['Invalid Windows credential format. Set the token again.', 'Windows の資格情報の形式が無効です。Token を再設定してください。'],

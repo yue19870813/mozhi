@@ -183,6 +183,25 @@ summary { cursor:pointer; }
 .setting-row select { max-width:100%; padding:8px 12px; background:var(--panel); color:var(--text); border:1px solid var(--border); border-radius:6px; }
 .workspace-toolbar button,.vault-history-actions button { max-width:100%; overflow-wrap:anywhere; }
 .setting-row { flex-wrap:wrap; gap:12px; }
+.about-brand { display:flex; align-items:center; gap:20px; margin:32px 0 28px; }
+.about-brand img { width:64px; height:64px; flex-shrink:0; object-fit:contain; }
+.about-brand>div { min-width:0; }
+.about-brand h2 { font-size:24px; font-weight:550; margin:0 0 8px; }
+.about-brand h2 span { font-size:16px; font-weight:400; color:var(--muted); margin-left:12px; }
+.about-description { max-width:680px; font-size:14px; line-height:1.9; overflow-wrap:anywhere; }
+.about-description p { margin:0 0 16px; }
+.about-details { max-width:680px; margin:28px 0 0; font-size:13px; }
+.about-details>div { display:grid; grid-template-columns:minmax(100px,1fr) minmax(0,2fr); gap:16px; padding:16px 0; border-top:1px solid var(--border); }
+.about-details dt { color:var(--muted); overflow-wrap:anywhere; }
+.about-details dd { margin:0; overflow-wrap:anywhere; }
+.about-window { min-height:100vh; align-items:center; justify-content:center; padding:30px 28px; text-align:center; background:var(--bg); color:var(--text); }
+.about-window-icon { width:96px; height:96px; object-fit:contain; margin-bottom:18px; border-radius:8px; }
+.about-window h1 { font-size:26px; margin:0; letter-spacing:0; }
+.about-window h1 span { display:block; font-size:14px; font-weight:400; color:var(--muted); margin-top:6px; }
+.about-window-version { font-size:12px; color:var(--muted); margin:14px 0 24px; }
+.about-window-summary { font-size:14px; margin:0 0 10px; line-height:1.7; }
+.about-window-tagline { font-size:12px; color:var(--muted); margin:0; line-height:1.8; }
+.about-window-license { font-size:11px; color:var(--muted); margin:24px 0 0; }
 .vault-history h2 { font-size:18px; margin:0 0 16px; }
 .vault-history-row { display:flex; align-items:center; gap:20px; padding:18px 0; border-top:1px solid var(--border); }
 .vault-history-copy { display:flex; flex-direction:column; gap:7px; flex:1; min-width:0; }

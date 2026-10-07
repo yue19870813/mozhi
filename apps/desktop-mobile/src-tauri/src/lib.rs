@@ -1,3 +1,4 @@
+mod about;
 mod ai;
 mod ai_credentials;
 mod credentials;
@@ -368,6 +369,17 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .manage(AppState::default())
         .manage(ai::AiState::default())
+        .setup(|app| {
+            about::install(app.handle())?;
+            Ok(())
+        })
+        .on_menu_event(|app, event| {
+            if event.id().as_ref() == about::MENU_ID {
+                if let Err(error) = about::open(app) {
+                    eprintln!("Could not open About window: {error}");
+                }
+            }
+        })
         .invoke_handler(tauri::generate_handler![
             workspace::workspace,
             ai::ai_request,

@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "about-window",
+  "description": "About window reads the application version and closes itself.",
+  "windows": ["about"],
+  "permissions": ["core:app:allow-version", "core:window:allow-close"]
+}

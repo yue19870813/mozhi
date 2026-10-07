@@ -8,7 +8,12 @@ pub fn system_locale() -> String {
 }
 
 #[tauri::command]
-pub fn ui_language(language: String) -> Result<(), String> {
+pub fn ui_language(app: tauri::AppHandle, language: String) -> Result<(), String> {
+    set_language(language)?;
+    crate::about::refresh_language(&app);
+    Ok(())
+}
+fn set_language(language: String) -> Result<(), String> {
     let selected = match language.as_str() {
         "zh-CN" => "zh-CN",
         "en" => "en",
@@ -43,12 +48,12 @@ mod tests {
     #[test]
     fn accepts_only_supported_languages_and_keeps_valid_state_on_invalid_input() {
         for (code, expected) in [("zh-CN", "中文"), ("en", "English"), ("ja", "日本語")] {
-            ui_language(code.into()).unwrap();
+            set_language(code.into()).unwrap();
             assert_eq!(text("中文", "English", "日本語"), expected);
         }
-        assert!(ui_language("invalid".into()).is_err());
+        assert!(set_language("invalid".into()).is_err());
         assert_eq!(text("中文", "English", "日本語"), "日本語");
-        ui_language("en".into()).unwrap();
+        set_language("en".into()).unwrap();
         assert!(!system_locale().is_empty());
     }
 }
