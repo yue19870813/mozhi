@@ -1,6 +1,7 @@
 import { t, useLanguage, dateTime } from './i18n';
 import { LanguageSettings } from './LanguageSettings';
 import { AboutPage } from './AboutPage';
+import { RefreshCw } from 'lucide-react';
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { listen } from '@tauri-apps/api/event';
@@ -324,7 +325,7 @@ export default function App(){
     <div className="sidebar-bottom"><button disabled={!native||busy||composing||syncing} onClick={()=>void openVault()}>{t("打开笔记库")}</button><div className="local-indicator"><span className="dot"/>{native?t("本地工作区"):t("浏览器内存演示")}</div></div>
   </>;
   return <AppShell active={module} disabled={busy||composing||!!modal||history!==null} onNavigate={next=>void switchModule(next)} sidebar={sidebarContent} sidebarVisible={sidebar.visible} dismissSidebar={sidebar.dismiss}>
-    <header className="topbar"><button className="sidebar-toggle" title={sidebar.visible?t("隐藏侧栏"):t("展开侧栏")} aria-label={sidebar.visible?t("收起侧栏"):t("展开侧栏")} aria-expanded={sidebar.visible} aria-controls="module-sidebar" onClick={sidebar.toggle}><Icon name="panel"/></button><div className="breadcrumb">{module==='notes'?t("笔记库 / {0}", path||t('未选择笔记')):t(moduleLabels[module])}</div><div className="save-status" role="status"><span aria-hidden="true" className={`dot ${busy||syncing||syncBlocked||autoPaused||!!error||!!session.current?.dirty?'status-pending':''}`}/>{t(status)}</div></header>
+    <header className="topbar"><button className="sidebar-toggle" title={sidebar.visible?t("隐藏侧栏"):t("展开侧栏")} aria-label={sidebar.visible?t("收起侧栏"):t("展开侧栏")} aria-expanded={sidebar.visible} aria-controls="module-sidebar" onClick={sidebar.toggle}><Icon name="panel"/></button><div className="breadcrumb">{module==='notes'?t("笔记库 / {0}", path||t('未选择笔记')):t(moduleLabels[module])}</div><div className="save-status" role="status"><span aria-hidden="true" className={`dot ${busy||syncing||syncBlocked||autoPaused||!!error||!!session.current?.dirty?'status-pending':''}`}/>{t(status)}</div><button className="topbar-sync" title={t("立即同步")} aria-label={t("立即同步")} aria-busy={syncing} disabled={!native||!vault||busy||composing||syncing||syncBlocked||!!modal||history!==null} onClick={()=>void syncNow()}><RefreshCw size={18} strokeWidth={1.6} aria-hidden="true"/></button></header>
     {error&&<div className="notice error" role="alert"><span>{t(error)}</span>{path&&<button disabled={busy||composing} onClick={()=>{setBusy(true);api.draft(path,session.current?.text??content).then(()=>loadNote(path)).catch(e=>setError(errorText(e))).finally(()=>setBusy(false));}}>{t("保留草稿并重读磁盘")}</button>}<button aria-label={t("关闭提示")} onClick={()=>setError('')}>×</button></div>}
     {syncing&&<div className="notice" role="status">{t("正在同步；可以浏览笔记，编辑和切换笔记库将在完成后恢复。")}</div>}
     {syncBlocked&&<div className="notice"><span>{t("此库有待处理的 Git 冲突，编辑暂时只读。")}</span><button disabled={busy||composing} onClick={()=>void selectSettings('sync')}>{t("处理冲突")}</button></div>}

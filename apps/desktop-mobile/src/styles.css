@@ -60,8 +60,15 @@ summary { cursor:pointer; }
 .file-actions { flex-wrap:wrap; }
 .search-result strong { font-weight:500; font-size:13px; }
 .search-result small,.search-result span { font-size:11px; overflow-wrap:anywhere; }
-.topbar { height:54px; padding:0 20px; gap:12px; }
+.topbar { height:44px; padding:0 20px; gap:12px; }
 .topbar .breadcrumb { flex:1; }
+.topbar-sync { display:grid; place-items:center; flex-shrink:0; width:25.6px; height:25.6px; padding:0; border:0; border-radius:6px; background:transparent; color:var(--muted); }
+.topbar-sync svg { width:14.4px; height:14.4px; }
+.topbar-sync:hover:not(:disabled) { background:var(--selected); color:var(--text); }
+.topbar-sync[aria-busy="true"] { color:var(--accent); opacity:1; }
+.topbar-sync[aria-busy="true"] svg { animation:sync-rotate 1.4s linear infinite; }
+@keyframes sync-rotate { to { transform:rotate(360deg); } }
+@media(prefers-reduced-motion:reduce) { .topbar-sync[aria-busy="true"] svg { animation:none; } }
 .sidebar-toggle { display:grid; place-items:center; padding:6px; border:0; background:transparent; color:var(--muted); flex-shrink:0; }
 .page-slot { display:flex; flex-direction:column; flex:1; min-height:0; overflow:auto; }
 .home-page { width:100%; max-width:1000px; padding:48px clamp(24px,5vw,76px); margin:0 auto; }
@@ -81,7 +88,7 @@ summary { cursor:pointer; }
 .home-empty h2 { font-weight:500; font-size:20px; margin-top:24px; }
 .home-empty .workspace-toolbar { margin-top:24px; }
 /* Wrap according to the space left by the resizable module sidebar. */
-.note-workspace .note-heading { padding:12px 24px; gap:10px 20px; flex-direction:row; align-items:center; flex-wrap:wrap; flex-shrink:0; }
+.note-workspace .note-heading { padding:6px 24px; gap:10px 20px; flex-direction:row; align-items:center; flex-wrap:wrap; flex-shrink:0; }
 .note-heading-copy { flex:1 1 180px; min-width:0; }
 .note-heading h1 { font-size:17px; line-height:24px; letter-spacing:0; margin:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .note-heading-copy .subtle { font-size:11px; line-height:18px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
@@ -151,7 +158,7 @@ summary { cursor:pointer; }
   .recent-row { gap:10px; flex-wrap:wrap; }
   .recent-row time { margin-left:32px; }
   .recent-copy { flex-basis:calc(100% - 40px); }
-  .note-workspace .note-heading { padding:10px 12px; gap:8px; }
+  .note-workspace .note-heading { padding:6px 12px; gap:8px; }
   .note-heading-copy { flex-basis:100%; }
   .editing-area .document-panes { margin:0 12px; }
   .relations { right:12px; }
