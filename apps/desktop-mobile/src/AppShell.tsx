@@ -3,6 +3,7 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { moduleLabels, readPreference, savePreference, type Module } from './navigation';
 export function Icon({ name }: { name: Module | 'panel' }) {
   useLanguage();
+  if (name === 'ai') return <span className="ai-nav-icon" aria-hidden="true">AI</span>;
   const paths = {
     home: <><path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1Z" /></>,
     notes: <><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 3v18m4-12h5m-5 4h5"/></>,
@@ -10,7 +11,6 @@ export function Icon({ name }: { name: Module | 'panel' }) {
     help: <><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 0 1 5 .5c0 2-2.5 2-2.5 4M12 17h.01"/></>,
     settings: <><path d="M9.67 4.14a2 2 0 0 1 1.76-1.04h1.14a2 2 0 0 1 1.76 1.04l.63 1.16a1 1 0 0 0 .88.5l1.33-.03a2 2 0 0 1 1.78 1l.57.99a2 2 0 0 1 .02 2.04l-.69 1.13a1 1 0 0 0 0 1.02l.69 1.13a2 2 0 0 1-.02 2.04l-.57.99a2 2 0 0 1-1.78 1l-1.33-.03a1 1 0 0 0-.88.5l-.63 1.16a2 2 0 0 1-1.76 1.04h-1.14a2 2 0 0 1-1.76-1.04l-.63-1.16a1 1 0 0 0-.88-.5l-1.33.03a2 2 0 0 1-1.78-1l-.57-.99a2 2 0 0 1-.02-2.04l.69-1.13a1 1 0 0 0 0-1.02l-.69-1.13a2 2 0 0 1 .02-2.04l.57-.99a2 2 0 0 1 1.78-1l1.33.03a1 1 0 0 0 .88-.5Z" transform="translate(0 .56)"/><circle cx="12" cy="12" r="3.2"/></>,
     panel: <><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M9 4v16"/></>,
-    ai: <><rect x="4" y="7" width="16" height="13" rx="3"/><path d="M12 3v4M8 12h.01M16 12h.01M8 16h8M1 11v5M23 11v5"/></>,
   };
   return <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{paths[name]}</svg>;
 }
