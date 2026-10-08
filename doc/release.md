@@ -30,11 +30,14 @@ GitHub → Actions → **Release** → **Run workflow**，选择默认分支，�
 
 Windows 下载 WebView2 Bootstrapper 可能需要网络。SHA256SUMS 可用 `shasum -a 256 -c SHA256SUMS.txt` 校验（需三份包均在当前目录）。默认不包含自动更新服务、Linux 安装包、Apple 签名/公证或 Windows Authenticode 签名；未签名安装包可能出现 Gatekeeper / SmartScreen 提示。公开分发给普通用户前建议另行配置代码签名，签名密钥只能存放于受保护的 CI 环境。
 
+macOS 发布先用 Tauri 生成 `.app`，再由 `scripts/macos/build-dmg.sh` 使用 `hdiutil makehybrid` 和 `convert` 生成压缩 DMG，并执行 `hdiutil verify`。镜像包含应用和 Applications 快捷方式；不挂载可写镜像，不依赖 Finder AppleScript，也不设置自定义背景或图标位置。这用于避开托管 runner 上 `bundle_dmg.sh` 的失败路径。Vite 的 500 kB chunk 提示只是警告，与 DMG 打包失败无关。
+
 ## 失败与重试
 
 - 任一构建失败，不创建 tag 或 Release；版本准备 commit 可能已经留在默认分支。优先用失败运行的 **Re-run failed jobs**，沿用相同源码。
 - 上传失败可能留下 tag 和 Draft Release；重跑 publish 会核对 tag 指向的 commit，仅允许继续同一个草稿，不覆盖已公开版本。
-- 已存在的版本 tag 不允许通过新的 Run workflow 重复发布；修改源码后使用新版本号。
+- 已存在的版本 tag 不允许通过新的 Run workflow 重复发布；该版本发布后修改源码需使用新版本号。
+- 若修复了工作流或打包脚本，需要合并修复后重新 **Run workflow**；旧运行的 **Re-run failed jobs** 仍使用原工作流和 prepare 记录的旧 commit，不会应用修复。失败版本尚未创建 tag 时，可再次输入同一版本号。
 - 不并发发布；工作流使用全仓库 release concurrency。没有 force push、没有绕过 hooks 或分支保护。
 - 流程本地验证不等于 GitHub runner 已执行成功；首次发布建议用 `0.1.1-beta.1` 验收三平台安装。
 

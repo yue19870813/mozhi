@@ -59,10 +59,10 @@ jobs:
             bundle: nsis
           - os: macos-14
             name: macos-arm64
-            bundle: dmg
+            bundle: app
           - os: macos-15-intel
             name: macos-x64
-            bundle: dmg
+            bundle: app
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -86,7 +86,13 @@ jobs:
       - run: cargo test --workspace --locked
       - run: cargo clippy --workspace --all-targets --locked -- -D warnings
       - name: Build installer
-        run: npm run tauri -- build --ci --bundles ${{ matrix.bundle }} -- --locked
+        run: npm run tauri -- build --ci --verbose --bundles ${{ matrix.bundle }} -- --locked
+      - name: Create macOS disk image without Finder automation
+        if: runner.os == 'macOS'
+        env:
+          VERSION: ${{ needs.prepare.outputs.version }}
+          PLATFORM: ${{ matrix.name }}
+        run: bash scripts/macos/build-dmg.sh target/release/bundle/macos/*.app "target/release/bundle/dmg/MoZhi-$VERSION-$PLATFORM.dmg"
       - name: Windows install, reinstall and uninstall smoke test
         if: runner.os == 'Windows'
         shell: pwsh
