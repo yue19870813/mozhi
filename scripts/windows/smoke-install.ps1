@@ -9,7 +9,9 @@ if (!$principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
     throw 'Requires an elevated isolated CI runner to test AllUsers installation'
 }
 $cases = @(
-    @{ Mode = 'CurrentUser'; Destination = (Join-Path $env:LOCALAPPDATA 'MoZhi') },
+    # NSIS MultiUser uses FOLDERID_UserProgramFiles (LocalAppData\Programs),
+    # unlike Tauri's currentUser-only mode, which uses LocalAppData directly.
+    @{ Mode = 'CurrentUser'; Destination = (Join-Path $env:LOCALAPPDATA 'Programs/MoZhi') },
     @{ Mode = 'AllUsers'; Destination = (Join-Path $env:ProgramFiles 'MoZhi') }
 )
 $vault = Join-Path $env:RUNNER_TEMP 'MozhiUserVault'
@@ -24,7 +26,11 @@ foreach ($case in $cases) {
         # Exercise the installer's default directory rather than overriding it with /D.
         $process = Start-Process -FilePath $installer.FullName -ArgumentList "/S /$mode" -PassThru -Wait
         if ($process.ExitCode -ne 0) { throw "$mode install failed: $($process.ExitCode)" }
-        if (!(Test-Path (Join-Path $destination 'mozhi.exe'))) { throw "$mode application executable missing" }
+        if (!(Test-Path (Join-Path $destination 'mozhi.exe'))) {
+            $hive = if ($mode -eq 'CurrentUser') { 'HKCU' } else { 'HKLM' }
+            $registration = Get-ItemProperty -LiteralPath "${hive}:\Software\Microsoft\Windows\CurrentVersion\Uninstall\MoZhi" -ErrorAction SilentlyContinue
+            throw "$mode application executable missing; expected directory: $destination; registered directory: $($registration.InstallLocation)"
+        }
     }
     $uninstaller = Get-Item -LiteralPath (Join-Path $destination 'uninstall.exe')
     $process = Start-Process -FilePath $uninstaller.FullName -ArgumentList "/S /$mode _?=$destination" -PassThru -Wait
