@@ -30,6 +30,10 @@ GitHub → Actions → **Release** → **Run workflow**，选择默认分支，�
 
 Windows 下载 WebView2 Bootstrapper 可能需要网络。SHA256SUMS 可用 `shasum -a 256 -c SHA256SUMS.txt` 校验（需三份包均在当前目录）。默认不包含自动更新服务、Linux 安装包、Apple 签名/公证或 Windows Authenticode 签名；未签名安装包可能出现 Gatekeeper / SmartScreen 提示。公开分发给普通用户前建议另行配置代码签名，签名密钥只能存放于受保护的 CI 环境。
 
+Windows 安装器支持“当前用户”和“所有用户”两种安装范围。安装到 `C:\Program Files` 时选择“所有用户”，并允许管理员授权；“当前用户”应使用用户目录。旧版 `currentUser` 安装器不请求提权，手动选择 Program Files 可能出现“无法打开要写入的文件”。此时中止安装，关闭正在运行的墨知后，重新安装到用户目录，或改用支持所有用户安装的新包。Windows CI 分别测试用户目录和 Program Files 下的安装、覆盖安装和卸载；隔离 runner 必须具备管理员权限。
+
+Windows 平台的 `productName` 为 `MoZhi`，安装器和卸载列表使用该名称，默认目录分别为 `%LOCALAPPDATA%\MoZhi` 和 `%ProgramFiles%\MoZhi`；应用窗口标题仍为“墨知”。CI 不通过 `/D` 覆盖目录，以检查真实默认路径。原有“墨知”安装记录不会自动迁移到新的产品名称，已安装旧版时应先退出并卸载旧版，再安装新版。
+
 macOS 发布先用 Tauri 生成 `.app`，再由 `scripts/macos/build-dmg.sh` 使用 `hdiutil makehybrid` 和 `convert` 生成压缩 DMG，并执行 `hdiutil verify`。镜像包含应用和 Applications 快捷方式；不挂载可写镜像，不依赖 Finder AppleScript，也不设置自定义背景或图标位置。这用于避开托管 runner 上 `bundle_dmg.sh` 的失败路径。Vite 的 500 kB chunk 提示只是警告，与 DMG 打包失败无关。
 
 ## 失败与重试
