@@ -330,7 +330,7 @@ export default function App(){
     {syncing&&<div className="notice" role="status">{t("正在同步；可以浏览笔记，编辑和切换笔记库将在完成后恢复。")}</div>}
     {syncBlocked&&<div className="notice"><span>{t("此库有待处理的 Git 冲突，编辑暂时只读。")}</span><button disabled={busy||composing} onClick={()=>void selectSettings('sync')}>{t("处理冲突")}</button></div>}
     {recovery!==null&&<div className="notice"><span>{t("发现与磁盘版本不同的恢复草稿。恢复后请检查并协调内容。")}</span><button disabled={busy||composing||syncBlocked||syncing} onClick={()=>{change(recovery);setRecovery(null);}}>{t("恢复草稿")}</button><button onClick={()=>setRecovery(null)}>{t("稍后处理")}</button></div>}
-    <div className="page-slot" hidden={module!=='home'}><HomePage pinned={pinnedNotes} onTogglePin={togglePin} recent={recent.map(item=>({...item,title:notes.find(note=>note.path===item.path)?.title??item.title}))} all={homePage==='recent'} busy={busy||composing} canCreate={native&&!syncing} onOpen={next=>void navigate(next)} onAll={()=>setHomePage('recent')} onNew={newNote} onBrowse={()=>void switchModule('notes')}/></div>
+    <div className="page-slot" hidden={module!=='home'}><HomePage welcome={!!vault?.demo&&vault.entries.some(note=>note.path==='欢迎使用.md')&&!vault.skipped.includes('欢迎使用.md')} pinned={pinnedNotes} onTogglePin={togglePin} recent={recent.map(item=>({...item,title:notes.find(note=>note.path===item.path)?.title??item.title}))} all={homePage==='recent'} busy={busy||composing} canCreate={native&&!syncing} onOpen={next=>void navigate(next)} onAll={()=>setHomePage('recent')} onNew={newNote} onBrowse={()=>void switchModule('notes')}/></div>
     <section hidden={module!=='notes'} className="note-workspace">
       <header className="note-heading">
         <div className="note-heading-copy">

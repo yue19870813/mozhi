@@ -22,6 +22,7 @@ mod sync_tests {
         fs::write(root.path().join("note.md"), "original").unwrap();
         let state = AppState::default();
         *state.0.lock().unwrap() = Some(Active {
+            demo: false,
             vault: Vault::open(root.path(), private.path()).unwrap(),
             index: SearchIndex::open(&private.path().join("index.db")).unwrap(),
             id: "test".into(),
@@ -176,7 +177,7 @@ fn refresh(active: &mut Active) -> ApiResult<Value> {
     }
     active.index.reconcile(&notes)?;
     Ok(
-        json!({"id":active.id,"name":active.vault.root().file_name().unwrap_or_default().to_string_lossy(),"entries":entries,"skipped":skipped}),
+        json!({"id":active.id,"name":active.vault.root().file_name().unwrap_or_default().to_string_lossy(),"demo":active.demo,"entries":entries,"skipped":skipped}),
     )
 }
 #[derive(Deserialize)]

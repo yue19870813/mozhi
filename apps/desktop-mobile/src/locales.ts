@@ -1,5 +1,9 @@
 // Source text remains the Simplified Chinese fallback. Note content is never translated.
 export const translations: Record<string, readonly [string, string]> = {
+  '打开欢迎使用指南': ['Open the welcome guide', '使い方ガイドを開く'],
+  '入门指南': ['Getting started', 'はじめに'],
+  '欢迎使用墨知': ['Welcome to MoZhi', '墨知へようこそ'],
+  '从书写、链接到同步与 AI，了解墨知的使用方法。': ['Learn how to write, connect, sync, and use AI in MoZhi.', '書く、つなぐ、同期する、AI を使う。墨知の使い方をご紹介します。'],
   '语言': ['Language', '言語'],
   '关于': ['About', 'このアプリについて'],
   '本地优先的 Markdown 笔记应用': ['A local-first Markdown notes app', 'ローカル優先の Markdown ノートアプリ'],

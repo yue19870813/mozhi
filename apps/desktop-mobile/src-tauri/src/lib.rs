@@ -2,6 +2,7 @@ mod about;
 mod ai;
 mod ai_credentials;
 mod credentials;
+mod demo;
 mod file_manager;
 mod language;
 mod ssh_agent;
@@ -24,6 +25,7 @@ use tauri::{Manager, State};
 use tauri_plugin_dialog::DialogExt;
 
 struct Active {
+    demo: bool,
     vault: Vault,
     index: SearchIndex,
     id: String,
@@ -118,6 +120,7 @@ fn with_access<T>(
 struct OpenedVault {
     id: String,
     name: String,
+    demo: bool,
     entries: Vec<Entry>,
     skipped: Vec<String>,
 }
@@ -128,6 +131,7 @@ fn activate(app: &tauri::AppHandle, state: &AppState, root: PathBuf) -> ApiResul
     }
     app.state::<ai::AiState>().cancel_all();
     let root = root.canonicalize().map_err(failure)?;
+    let demo = demo::is_demo(&app.path().app_data_dir().map_err(failure)?, &root);
     let key = vault::hash(root.to_string_lossy().as_bytes());
     let private = app
         .path()
@@ -145,6 +149,9 @@ fn activate(app: &tauri::AppHandle, state: &AppState, root: PathBuf) -> ApiResul
         .map_err(failure)?;
     fs2::FileExt::try_lock_exclusive(&lock).map_err(|_| failure("笔记库正在被另一个进程操作"))?;
     let vault = Vault::open(&root, &private.join("recovery"))?;
+    if demo {
+        demo::update_welcome(&vault)?;
+    }
     let entries = vault.list()?;
     if entries.len() > 10_000 {
         return Err(failure("当前笔记库上限为 10000 篇，请选择更小的目录"));
@@ -176,6 +183,7 @@ fn activate(app: &tauri::AppHandle, state: &AppState, root: PathBuf) -> ApiResul
     let watcher = watcher::Watcher::start(app.clone(), &root, key.clone());
     let recovery_warnings = workspace::automatic_recovery_cleanup(&vault);
     *guard = Some(Active {
+        demo,
         vault,
         index,
         id: key.clone(),
@@ -186,6 +194,7 @@ fn activate(app: &tauri::AppHandle, state: &AppState, root: PathBuf) -> ApiResul
     Ok(OpenedVault {
         id: key,
         name,
+        demo,
         entries,
         skipped,
     })
