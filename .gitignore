@@ -7,3 +7,4 @@ apps/desktop-mobile/src-tauri/gen/
 test-results/
 playwright-report/
 *.tsbuildinfo
+scripts/dev/.vcenv

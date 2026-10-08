@@ -26,6 +26,21 @@ npm run tauri -- build --bundles nsis       # 在 Windows 上构建安装包
 
 使用 `npm run check` 快速检查前端和核心 Rust。macOS 上的交叉检查不能作为 Windows 运行验收结果。
 
+Windows 上任何涉及 Rust 的命令都必须先在**当前 shell** 加载 MSVC 环境，否则 `INCLUDE` / `LIB` 为空，
+编译 libgit2、sqlite 等 C 依赖时会报 `C1083: 无法打开包括文件 "time.h"`（并行构建下还可能把其他
+crate 连带成 `STATUS_ACCESS_VIOLATION`，属于次生现象）：
+
+```sh
+source scripts/dev/msvc-env.sh      # Git Bash
+```
+
+```powershell
+. .\scripts\dev\msvc-env.ps1        # PowerShell，注意开头的点和空格（dot-sourcing）
+```
+
+每个 shell 都要重新加载。首次运行会把结果缓存到 `scripts/dev/.vcenv`（已忽略）；升级 Build Tools
+或 Windows SDK 后需删除该缓存重新生成。
+
 ## 编码风格与命名
 
 Rust 使用 `rustfmt` 默认格式，并处理全部 Clippy 警告。Rust 模块和函数使用 `snake_case`，类型使用 `PascalCase`。TypeScript 组件使用 `PascalCase`，辅助函数使用 `camelCase`，采用两个空格缩进。共享逻辑放在 `mozhi-core`，系统 API 放在平台模块。逻辑路径始终使用 `/`。
