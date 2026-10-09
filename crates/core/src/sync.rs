@@ -1233,10 +1233,7 @@ mod tests {
             let credential =
                 ssh_credential(&config, url_user, git2::CredentialType::USERNAME).unwrap();
             assert!(credential.has_username());
-            assert_eq!(
-                credential.credtype() as u32,
-                git2::CredentialType::USERNAME.bits()
-            );
+            assert_eq!(credential.credtype(), git2::CredentialType::USERNAME.bits());
         }
         assert!(ssh_credential(
             &ssh("github.com:user/repo.git"),
