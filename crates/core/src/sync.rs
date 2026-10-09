@@ -5,8 +5,8 @@ use crate::{
 };
 use git2::{
     build::{CheckoutBuilder, RepoBuilder},
-    Cred, FetchOptions, Oid, PushOptions, RemoteCallbacks, Repository, RepositoryState, Signature,
-    Status, StatusOptions,
+    Cred, FetchOptions, Oid, ProxyOptions, PushOptions, RemoteCallbacks, Repository,
+    RepositoryState, Signature, Status, StatusOptions,
 };
 use serde::{Deserialize, Serialize};
 use std::{
@@ -24,28 +24,80 @@ pub struct Config {
     pub branch: String,
     pub username: String,
 }
+fn contains_any(value: &str, chars: &[char]) -> bool {
+    value.contains(|c| chars.contains(&c))
+}
+/// 校验 scp 简写 `[用户@]主机:路径`，合法时返回 `(主机, 路径)`。
+///
+/// 路径中再出现 `:` 或反斜杠说明这不是 scp 形式（例如 `git:secret@主机:路径`，
+/// 看着像把密码塞进了地址），返回 `None` 交给标准 URL 解析去拒绝。
+fn scp_components(url: &str) -> Option<(&str, &str)> {
+    if url.contains("://") {
+        return None;
+    }
+    let (authority, path) = url.split_once(':')?;
+    if (authority.len() == 1 && authority.as_bytes()[0].is_ascii_alphabetic())
+        || path.is_empty()
+        || contains_any(path, &[':', '\\', '?', '#'])
+    {
+        return None;
+    }
+    let (user, host) = match authority.rsplit_once('@') {
+        Some((user, host)) => (Some(user), host),
+        None => (None, authority),
+    };
+    if host.is_empty() || host.starts_with('.') || contains_any(host, &['/', '\\', '@', ':']) {
+        return None;
+    }
+    if let Some(user) = user {
+        if user.is_empty() || contains_any(user, &[':', '/', '\\', '@']) {
+            return None;
+        }
+    }
+    Some((host, path))
+}
 impl Config {
+    // Preserve SCP home-relative paths instead of rewriting them into absolute SSH URLs.
+    pub fn remote_url(&self) -> &str {
+        &self.url
+    }
     pub fn validate(&self) -> Result<()> {
-        let url =
-            url::Url::parse(&self.url).map_err(|_| Error::Probe("请输入有效的仓库 URL".into()))?;
         let protocol = if self.protocol.is_empty() {
             "https"
         } else {
             self.protocol.as_str()
         };
-        let expected_scheme = match protocol {
-            "https" => "https",
-            "ssh" => "ssh",
-            _ => return Err(Error::Probe("同步协议无效".into())),
-        };
-        if url.scheme() != expected_scheme
-            || url.host_str().is_none()
-            || (protocol == "https" && !url.username().is_empty())
-            || url.password().is_some()
-            || url.query().is_some()
-            || url.fragment().is_some()
-        {
-            return Err(Error::Probe("仓库 URL 不应包含凭据、查询参数或片段".into()));
+        if !matches!(protocol, "https" | "ssh") {
+            return Err(Error::Probe("同步协议无效".into()));
+        }
+        let mut remote_username = None;
+        if protocol == "ssh" && scp_components(&self.url).is_some() {
+            remote_username = self.url.split_once(':').and_then(|(authority, _)| {
+                authority.split_once('@').map(|(user, _)| user.to_owned())
+            });
+        } else {
+            let url = url::Url::parse(&self.url)
+                .map_err(|_| Error::Probe("请输入有效的仓库 URL".into()))?;
+            if url.scheme() != protocol
+                || url.host_str().is_none()
+                || (protocol == "https" && !url.username().is_empty())
+                || url.password().is_some()
+                || url.query().is_some()
+                || url.fragment().is_some()
+            {
+                return Err(Error::Probe("仓库 URL 不应包含凭据、查询参数或片段".into()));
+            }
+            if protocol == "ssh" && !url.username().is_empty() {
+                remote_username = Some(
+                    percent_encoding::percent_decode_str(url.username())
+                        .decode_utf8()
+                        .map_err(|_| Error::Probe("请输入有效的仓库 URL".into()))?
+                        .into_owned(),
+                );
+            }
+        }
+        if !self.username.is_empty() && remote_username.is_some_and(|user| user != self.username) {
+            return Err(Error::Probe("SSH 地址中的用户名与 SSH 用户名不一致，请填写相同用户名或清空用户名字段以使用地址中的用户名".into()));
         }
         if !git2::Reference::is_valid_name(&format!("refs/heads/{}", self.branch))
             || self.branch.starts_with('-')
@@ -55,18 +107,29 @@ impl Config {
         Ok(())
     }
 }
+fn ssh_credential(
+    config: &Config,
+    user: Option<&str>,
+    allowed: git2::CredentialType,
+) -> std::result::Result<Cred, git2::Error> {
+    let username = if config.username.is_empty() {
+        user.unwrap_or("git")
+    } else {
+        &config.username
+    };
+    if allowed.contains(git2::CredentialType::USERNAME) {
+        return Cred::username(username);
+    }
+    if allowed.contains(git2::CredentialType::SSH_KEY) {
+        return Cred::ssh_key_from_agent(username);
+    }
+    Err(git2::Error::from_str("SSH 同步需要已加载密钥的 ssh-agent"))
+}
 fn callbacks<'a>(config: &'a Config, token: &'a str) -> RemoteCallbacks<'a> {
     let mut callbacks = RemoteCallbacks::new();
     callbacks.credentials(move |_url, user, allowed| {
         if config.protocol == "ssh" {
-            if allowed.contains(git2::CredentialType::SSH_KEY) {
-                return Cred::ssh_key_from_agent(if config.username.is_empty() {
-                    user.unwrap_or("git")
-                } else {
-                    &config.username
-                });
-            }
-            return Err(git2::Error::from_str("SSH 同步需要已加载密钥的 ssh-agent"));
+            return ssh_credential(config, user, allowed);
         }
         if allowed.contains(git2::CredentialType::USER_PASS_PLAINTEXT) {
             Cred::userpass_plaintext(
@@ -91,6 +154,13 @@ fn remote_error(error: git2::Error) -> Error {
         match error.code() {
             git2::ErrorCode::Auth => "Git 认证失败，请检查 HTTPS Token 或 SSH Agent",
             git2::ErrorCode::Certificate => "Git TLS 证书验证失败",
+            _ if error.class() == git2::ErrorClass::Ssh
+                && error
+                    .message()
+                    .contains("Unable to exchange encryption keys") =>
+            {
+                "SSH 握手失败：加密密钥交换未完成，尚未进行密钥认证"
+            }
             _ => "Git 网络操作失败；本地提交和恢复记录已保留，请检查网络、仓库权限与分支",
         }
         .into(),
@@ -106,10 +176,13 @@ pub fn clone(config: &Config, token: &str, destination: &Path) -> Result<()> {
     let mut fetch = FetchOptions::new();
     fetch.remote_callbacks(callbacks(config, token));
     fetch.follow_redirects(git2::RemoteRedirect::None);
+    let mut proxy = ProxyOptions::new();
+    proxy.auto();
+    fetch.proxy_options(proxy);
     RepoBuilder::new()
         .branch(&config.branch)
         .fetch_options(fetch)
-        .clone(&config.url, temporary.path())
+        .clone(config.remote_url(), temporary.path())
         .map_err(remote_error)?;
     validate_worktree(temporary.path())?;
     fs::rename(temporary.path(), destination)?;
@@ -577,10 +650,13 @@ fn synchronize_inner_guarded(
         // Anonymous remote prevents a changed origin or embedded credentials from being used.
         for attempt in 0..3 {
             progress("fetching")?;
-            let mut remote = repo.remote_anonymous(&config.url)?;
+            let mut remote = repo.remote_anonymous(config.remote_url())?;
             let mut fetch = FetchOptions::new();
             fetch.remote_callbacks(callbacks(config, token));
             fetch.follow_redirects(git2::RemoteRedirect::None);
+            let mut proxy = ProxyOptions::new();
+            proxy.auto();
+            fetch.proxy_options(proxy);
             remote
                 .fetch(
                     &[&format!(
@@ -632,6 +708,9 @@ fn synchronize_inner_guarded(
             progress("pushing")?;
             let mut options = PushOptions::new();
             options.follow_redirects(git2::RemoteRedirect::None);
+            let mut proxy = ProxyOptions::new();
+            proxy.auto();
+            options.proxy_options(proxy);
             let rejected = std::sync::Arc::new(std::sync::Mutex::new(false));
             let signal = rejected.clone();
             let mut cb = callbacks(config, token);
@@ -747,6 +826,136 @@ mod tests {
         commit_local(repo).unwrap();
         repo.head().unwrap().target().unwrap()
     }
+    #[test]
+    fn reports_ssh_key_exchange_failure_without_exposing_remote_details() {
+        let error = git2::Error::new(
+            git2::ErrorCode::GenericError,
+            git2::ErrorClass::Ssh,
+            "failed to start SSH session: Unable to exchange encryption keys; private-detail",
+        );
+        let message = remote_error(error).to_string();
+        assert!(message.contains("加密密钥交换未完成"));
+        assert!(!message.contains("private-detail"));
+    }
+    #[test]
+    fn clone_uses_environment_proxy() {
+        use std::{
+            io::{Read, Write},
+            net::TcpListener,
+            process::Command,
+            time::{Duration, Instant},
+        };
+
+        const CHILD: &str = "MOZHI_PROXY_TEST_CHILD";
+        if let Some(root) = std::env::var_os(CHILD) {
+            let root = PathBuf::from(root);
+            // This exact-test subprocess is the only libgit2 user here.
+            for level in [
+                git2::ConfigLevel::System,
+                git2::ConfigLevel::Global,
+                git2::ConfigLevel::XDG,
+                git2::ConfigLevel::ProgramData,
+            ] {
+                unsafe { git2::opts::set_search_path(level, root.to_str().unwrap()).unwrap() };
+            }
+            let config = Config {
+                protocol: "https".into(),
+                url: "https://proxy-test.invalid/repo.git".into(),
+                branch: "main".into(),
+                username: String::new(),
+            };
+            assert!(super::clone(&config, "", &root.join("clone")).is_err());
+            assert!(!root.join("clone").exists());
+            return;
+        }
+
+        let dir = tempfile::tempdir().unwrap();
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        listener.set_nonblocking(true).unwrap();
+        let proxy = format!("http://{}", listener.local_addr().unwrap());
+        let mut command = Command::new(std::env::current_exe().unwrap());
+        command
+            .args([
+                "--exact",
+                "sync::tests::clone_uses_environment_proxy",
+                "--nocapture",
+                "--test-threads=1",
+            ])
+            .env_clear()
+            .env(CHILD, dir.path())
+            .env("HOME", dir.path())
+            .env("USERPROFILE", dir.path())
+            .env("XDG_CONFIG_HOME", dir.path())
+            .env("GIT_CONFIG_NOSYSTEM", "1")
+            .env("GIT_CONFIG_GLOBAL", dir.path().join("absent.gitconfig"))
+            .env("HTTPS_PROXY", &proxy)
+            .env("https_proxy", &proxy)
+            .env("HTTP_PROXY", &proxy)
+            .env("http_proxy", &proxy)
+            .env("NO_PROXY", "")
+            .env("no_proxy", "");
+        if let Some(system_root) = std::env::var_os("SystemRoot") {
+            command.env("SystemRoot", system_root);
+        }
+        let mut child = command.spawn().unwrap();
+        let deadline = Instant::now() + Duration::from_secs(15);
+        let mut requests = Vec::new();
+        let result = (|| -> std::io::Result<_> {
+            loop {
+                if Instant::now() >= deadline {
+                    return Err(std::io::ErrorKind::TimedOut.into());
+                }
+                match listener.accept() {
+                    Ok((mut stream, _)) => {
+                        stream.set_read_timeout(Some(Duration::from_millis(200)))?;
+                        stream.set_write_timeout(Some(Duration::from_secs(1)))?;
+                        let mut request = Vec::new();
+                        while !request.ends_with(b"\r\n\r\n") {
+                            if Instant::now() >= deadline || request.len() >= 16 * 1024 {
+                                return Err(std::io::ErrorKind::TimedOut.into());
+                            }
+                            let mut buffer = [0; 1024];
+                            match stream.read(&mut buffer) {
+                                Ok(0) => break,
+                                Ok(n) => request.extend_from_slice(&buffer[..n]),
+                                Err(e)
+                                    if matches!(
+                                        e.kind(),
+                                        std::io::ErrorKind::WouldBlock
+                                            | std::io::ErrorKind::TimedOut
+                                    ) => {}
+                                Err(e) => return Err(e),
+                            }
+                        }
+                        requests.push(String::from_utf8_lossy(&request).into_owned());
+                        stream.write_all(
+                            b"HTTP/1.1 502 Bad Gateway\r\nContent-Length: 0\r\nConnection: close\r\n\r\n",
+                        )?;
+                    }
+                    Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => {}
+                    Err(e) => return Err(e),
+                }
+                if let Some(status) = child.try_wait()? {
+                    return Ok(status);
+                }
+                std::thread::sleep(Duration::from_millis(10));
+            }
+        })();
+        if result.is_err() {
+            let _ = child.kill();
+            let _ = child.wait();
+        }
+        assert!(result
+            .expect("proxy clone subprocess timed out or failed")
+            .success());
+        assert!(
+            requests
+                .iter()
+                .any(|request| request.starts_with("CONNECT proxy-test.invalid:443 HTTP/1.")),
+            "production clone did not CONNECT through the proxy: {requests:?}"
+        );
+    }
+
     #[test]
     fn full_sync_conflict_resolution_restart_and_history() {
         let dir = tempfile::tempdir().unwrap();
@@ -974,5 +1183,112 @@ mod tests {
         }
         .validate()
         .is_ok());
+    }
+    fn ssh(url: &str) -> Config {
+        Config {
+            protocol: "ssh".into(),
+            url: url.into(),
+            branch: "main".into(),
+            username: "git".into(),
+        }
+    }
+    #[test]
+    fn validates_ssh_username_consistency() {
+        for url in [
+            "alice@example.com:notes.git",
+            "ssh://alice@example.com/notes.git",
+            "ssh://%61lice@example.com/notes.git",
+        ] {
+            let mut config = ssh(url);
+            assert!(config
+                .validate()
+                .unwrap_err()
+                .to_string()
+                .contains("用户名不一致"));
+            config.username = "alice".into();
+            assert!(config.validate().is_ok(), "{url}");
+            config.username.clear();
+            assert!(config.validate().is_ok(), "{url}");
+        }
+        for url in [
+            "example.com:notes.git",
+            "ssh://example.com/notes.git",
+            "git@example.com:notes.git",
+        ] {
+            assert!(ssh(url).validate().is_ok(), "{url}");
+        }
+        let config = Config {
+            protocol: "https".into(),
+            url: "https://example.com/notes.git".into(),
+            username: "alice".into(),
+            branch: "main".into(),
+        };
+        assert!(config.validate().is_ok());
+    }
+    #[test]
+    fn supplies_username_before_ssh_key_authentication() {
+        for (username, url_user) in [("git", None), ("", None), ("", Some("git"))] {
+            let mut config = ssh("github.com:user/repo.git");
+            config.username = username.into();
+            let credential =
+                ssh_credential(&config, url_user, git2::CredentialType::USERNAME).unwrap();
+            assert!(credential.has_username());
+            assert_eq!(
+                credential.credtype() as u32,
+                git2::CredentialType::USERNAME.bits()
+            );
+        }
+        assert!(ssh_credential(
+            &ssh("github.com:user/repo.git"),
+            None,
+            git2::CredentialType::USER_PASS_PLAINTEXT
+        )
+        .is_err());
+    }
+    #[test]
+    fn accepts_ssh_scp_shorthand_and_passes_it_through() {
+        for (url, expected) in [
+            (
+                "git@github.com:user/repo.git",
+                "git@github.com:user/repo.git",
+            ),
+            // 省略用户：Git 与 libgit2 都按 scp 形式接受。
+            ("github.com:user/repo.git", "github.com:user/repo.git"),
+        ] {
+            let config = ssh(url);
+            assert!(config.validate().is_ok(), "{url} 应被接受");
+            // 原样透传：改写成 ssh:// 会把相对家目录的路径变成绝对路径。
+            assert_eq!(config.remote_url(), expected, "{url}");
+        }
+        // 斜杠形式仍走标准 URL 路径，不被误判成 scp 简写。
+        let standard = ssh("ssh://git@github.com/user/repo.git");
+        assert!(standard.validate().is_ok());
+        assert_eq!(standard.remote_url(), "ssh://git@github.com/user/repo.git");
+        // 显式端口不能因为 scp 判定而丢失。
+        let port = ssh("ssh://git@github.com:2222/user/repo.git");
+        assert!(port.validate().is_ok());
+        assert_eq!(port.remote_url(), "ssh://git@github.com:2222/user/repo.git");
+    }
+    #[test]
+    fn rejects_scp_shorthand_that_smuggles_credentials_or_escapes_host() {
+        for url in [
+            "ssh://git@github.com:user/repo.git",
+            "ssh://git:secret@github.com/team/repo.git",
+            "C:/repos/source.git",
+            "c:repos/source.git",
+            "C:\\repos\\source.git",
+            "//server/share/repo.git",
+            "\\\\server\\share\\repo.git",
+            "git:secret@github.com:user/repo.git",
+            "git@github.com:user:repo.git",
+            "git@github.com:user/repo.git?token=x",
+            "git@github.com:user/repo.git#frag",
+            "user@@github.com:user/repo.git",
+            "git@/repo.git",
+            "git@.github.com:user/repo.git",
+            "git@github.com\\user\\repo.git",
+        ] {
+            assert!(ssh(url).validate().is_err(), "{url} 应被拒绝");
+        }
     }
 }

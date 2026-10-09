@@ -88,7 +88,7 @@ tag:工作 path:项目 预算
 进入「设置 → 同步」，填写仓库地址、用户名和固定分支。
 
 - **HTTPS**：使用 `https://host/user/notes.git` 形式的地址，通过原生密码框设置 Token。凭据存入 macOS Keychain 或 Windows 凭据管理器。
-- **SSH**：使用 `ssh://git@host/user/notes.git` 形式的地址。macOS 可点击「选择 SSH 密钥」，选择已有私钥加载到系统 Agent；加密私钥通过系统密码对话框输入密码。「检查 SSH Agent」显示已加载的密钥数量，不验证仓库权限。其他平台需通过系统 `ssh-add` 加载密钥。墨知不保存私钥、密码或所选路径；密钥应具备仓库访问权限。
+- **SSH**：使用 `git@host:user/notes.git`（GitHub 复制按钮给出的形式）或 `ssh://git@host/user/notes.git` 形式的地址。macOS 和 Windows 可点击「选择 SSH 密钥」，选择已有私钥加载到系统 Agent；加密私钥通过系统密码对话框输入密码。「检查 SSH Agent」显示已加载的密钥数量，不验证仓库权限。Windows 使用系统 OpenSSH，首次使用若服务未启用，检查结果会提示一次性的管理员配置步骤：在管理员 PowerShell 执行 `Set-Service -Name ssh-agent -StartupType Automatic`，再执行 `Start-Service -Name ssh-agent`，将服务设为自动启动并立即启动；应用不会自动提权或修改服务。其他平台需通过系统 `ssh-add` 加载密钥。墨知不保存私钥、密码或所选路径；密钥应具备仓库访问权限。
 
 推荐从「克隆已有仓库」开始：填写配置后，选择父目录和新笔记库名称，完成克隆。使用已有本地库同步时，该目录需要已经是 Git 仓库，且配置的分支已存在；应用不会自动合并无关历史。
 
@@ -111,7 +111,7 @@ tag:工作 path:项目 预算
 - Node.js **22.12+** 与 npm。
 - Rust **stable** 工具链。
 - macOS：Xcode Command Line Tools。
-- Windows：Visual Studio 2022 Build Tools（Desktop development with C++、Windows SDK）、Rust MSVC 工具链及 WebView2 Evergreen Runtime。
+- Windows：Visual Studio 2022 Build Tools（Desktop development with C++、Windows SDK）、Rust MSVC 工具链及 WebView2 Evergreen Runtime。编译 vendored OpenSSL 还需要 Windows 原生 Perl（例如 Strawberry Perl；Git 自带的 Cygwin Perl 不适用），可通过 `OPENSSL_SRC_PERL` 指定 `perl.exe` 路径。
 
 以下命令均在仓库根目录执行。
 

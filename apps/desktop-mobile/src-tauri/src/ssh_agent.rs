@@ -1,4 +1,4 @@
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "macos", windows))]
 use crate::blocking;
 use crate::{failure, ApiResult};
 use serde::Serialize;
@@ -219,11 +219,41 @@ mod macos {
     }
 }
 
+#[cfg(windows)]
+mod windows {
+    use super::*;
+    use tauri_plugin_dialog::DialogExt;
+
+    pub(super) fn status() -> ApiResult<AgentStatus> {
+        mozhi_windows::ssh_agent::status()
+            .map(|key_count| AgentStatus { key_count })
+            .map_err(|message| failure(&message))
+    }
+
+    pub(super) fn select(app: tauri::AppHandle) -> ApiResult<Option<AgentStatus>> {
+        mozhi_windows::ssh_agent::preflight().map_err(|message| failure(&message))?;
+        let dialog = app.dialog().file().set_title(crate::language::text(
+            "选择 SSH 私钥（非 .pub 公钥）",
+            "Choose SSH private key (not a .pub public key)",
+            "SSH 秘密鍵を選択（.pub 公開鍵以外）",
+        ));
+        let Some(file) = dialog.blocking_pick_file() else {
+            return Ok(None);
+        };
+        let path = file.into_path().map_err(|_| failure("私钥文件路径无效"))?;
+        mozhi_windows::ssh_agent::add_key(&path, crate::language::text("zh-CN", "en", "ja"))
+            .map(|key_count| Some(AgentStatus { key_count }))
+            .map_err(|message| failure(&message))
+    }
+}
+
 #[tauri::command]
 pub async fn select_ssh_key(app: tauri::AppHandle) -> ApiResult<Option<AgentStatus>> {
     #[cfg(target_os = "macos")]
     return blocking(move || macos::select(app)).await;
-    #[cfg(not(target_os = "macos"))]
+    #[cfg(windows)]
+    return blocking(move || windows::select(app)).await;
+    #[cfg(not(any(target_os = "macos", windows)))]
     {
         let _ = app;
         Err(failure(
@@ -236,7 +266,9 @@ pub async fn select_ssh_key(app: tauri::AppHandle) -> ApiResult<Option<AgentStat
 pub async fn check_ssh_agent() -> ApiResult<AgentStatus> {
     #[cfg(target_os = "macos")]
     return blocking(macos::status).await;
-    #[cfg(not(target_os = "macos"))]
+    #[cfg(windows)]
+    return blocking(windows::status).await;
+    #[cfg(not(any(target_os = "macos", windows)))]
     Err(failure(
         "当前平台暂不支持图形检查 SSH Agent，请使用系统 ssh-add -l",
     ))

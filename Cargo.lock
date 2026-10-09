@@ -2076,6 +2076,7 @@ version = "0.3.1"
 dependencies = [
  "fs2",
  "git2",
+ "libssh2-sys",
  "percent-encoding",
  "pulldown-cmark",
  "rusqlite",

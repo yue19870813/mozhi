@@ -23,8 +23,8 @@ fn wipe<T: Default + Copy>(buffer: &mut [T]) {
     }
     compiler_fence(Ordering::SeqCst);
 }
-struct Password(Vec<u16>);
-impl Drop for Password {
+struct Secret<T: Default + Copy>(Vec<T>);
+impl<T: Default + Copy> Drop for Secret<T> {
     fn drop(&mut self) {
         wipe(&mut self.0);
     }
@@ -116,16 +116,38 @@ pub fn prompt_named(config: &Config, caption: &str) -> ApiResult<bool> {
     )
 }
 pub fn prompt_localized(config: &Config, caption: &str, instructions: &str) -> ApiResult<bool> {
+    let Some(secret) = prompt_secret(&target(config), &config.username, caption, instructions)?
+    else {
+        return Ok(false);
+    };
+    store(config, secret.as_bytes())?;
+    Ok(true)
+}
+
+/// Owned UTF-8 secret, wiped on every exit path. Never serialize or log this value.
+pub(crate) struct PromptSecret(Secret<u8>);
+impl PromptSecret {
+    pub(crate) fn as_bytes(&self) -> &[u8] {
+        &self.0 .0
+    }
+}
+
+pub(crate) fn prompt_secret(
+    target_name: &str,
+    username: &str,
+    caption: &str,
+    instructions: &str,
+) -> ApiResult<Option<PromptSecret>> {
     let title = wide(caption);
     let message = wide(instructions);
-    let target = wide(&target(config));
-    let initial = wide(&config.username);
+    let target = wide(target_name);
+    let initial = wide(username);
     if initial.len() > 514 {
         return Err(failure("用户名过长"));
     }
     let mut username = vec![0u16; 514];
     username[..initial.len()].copy_from_slice(&initial);
-    let mut password = Password(vec![0u16; 514]);
+    let mut password = Secret(vec![0u16; 514]);
     let mut save = 0;
     let info = CREDUI_INFOW {
         cbSize: std::mem::size_of::<CREDUI_INFOW>() as u32,
@@ -152,7 +174,7 @@ pub fn prompt_localized(config: &Config, caption: &str, instructions: &str) -> A
         )
     };
     if result == ERROR_CANCELLED {
-        return Ok(false);
+        return Ok(None);
     }
     if result != ERROR_SUCCESS {
         return Err(failure("Windows 原生凭据对话框未完成"));
@@ -161,14 +183,23 @@ pub fn prompt_localized(config: &Config, caption: &str, instructions: &str) -> A
         .0
         .iter()
         .position(|c| *c == 0)
-        .ok_or_else(|| failure("Token 超出输入上限"))?;
-    let mut token = String::from_utf16(&password.0[..length])
-        .map_err(|_| failure("Token 格式无效"))?
-        .into_bytes();
-    let result = store(config, &token);
-    wipe(&mut token);
-    result?;
-    Ok(true)
+        .ok_or_else(|| failure("凭据超出输入上限"))?;
+    secret_from_utf16(&password.0[..length]).map(Some)
+}
+
+fn secret_from_utf16(input: &[u16]) -> ApiResult<PromptSecret> {
+    // Decode directly into a preallocated RAII buffer: no temporary String or
+    // reallocations containing a second, unwiped copy of the passphrase.
+    let mut bytes = Secret(Vec::with_capacity(input.len() * 3));
+    let mut encoded = Secret([0u8; 4].to_vec());
+    for character in char::decode_utf16(input.iter().copied()) {
+        let character = character.map_err(|_| failure("凭据格式无效"))?;
+        let buffer: &mut [u8; 4] = encoded.0.as_mut_slice().try_into().unwrap();
+        bytes
+            .0
+            .extend_from_slice(character.encode_utf8(buffer).as_bytes());
+    }
+    Ok(PromptSecret(bytes))
 }
 #[cfg(test)]
 mod tests {
@@ -202,6 +233,34 @@ mod tests {
         assert!(get(&other).is_err());
         assert!(!target(&config).contains("墨知测试"));
     }
+    #[test]
+    fn passphrase_conversion_and_raii_cleanup() {
+        let input = Secret("synthetic 密码".encode_utf16().collect::<Vec<_>>());
+        let secret = secret_from_utf16(&input.0).unwrap();
+        assert_eq!(secret.as_bytes(), "synthetic 密码".as_bytes());
+        assert!(secret_from_utf16(&[0xd800]).is_err());
+        let mut bytes = *b"secret";
+        wipe(&mut bytes);
+        assert_eq!(bytes, [0; 6]);
+
+        // Observe Drop's overwrite calls without inspecting deallocated memory.
+        static CLEARED: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+        #[derive(Clone, Copy)]
+        struct Probe;
+        impl Default for Probe {
+            fn default() -> Self {
+                CLEARED.fetch_add(1, Ordering::SeqCst);
+                Self
+            }
+        }
+        let result = std::panic::catch_unwind(|| {
+            let _owned = Secret(vec![Probe; 8]);
+            panic!("synthetic cleanup test");
+        });
+        assert!(result.is_err());
+        assert_eq!(CLEARED.load(Ordering::SeqCst), 8);
+    }
+
     #[test]
     fn password_buffer_is_cleared() {
         let mut buffer = [1u16, 2, 3];

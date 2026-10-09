@@ -22,3 +22,7 @@ percent-encoding = "2"
 fs2 = "0.4"
 zip = { version = "4", default-features = false, features = ["deflate"] }
 url = "2"
+
+[target.'cfg(windows)'.dependencies]
+# WinCNG lacks algorithms required by some SSH servers and Ed25519 keys.
+libssh2-sys = { version = "0.3", features = ["openssl-on-win32", "vendored-openssl"] }

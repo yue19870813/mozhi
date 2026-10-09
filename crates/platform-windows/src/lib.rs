@@ -18,4 +18,5 @@ fn account(config: &Config) -> String {
     )
 }
 pub mod credentials;
+pub mod ssh_agent;
 pub mod watcher;
