@@ -305,3 +305,12 @@ summary { cursor:pointer; }
   .ai-header-actions { gap:4px; }
 }
 @media(prefers-reduced-motion:reduce) { .ai-generating svg,.ai-send-button:disabled svg { animation:none; } }
+
+.getting-started-content { max-width:820px; margin:0 auto; padding-bottom:32px; }
+.getting-started p { max-width:none; overflow-wrap:anywhere; }
+.getting-started pre { padding:14px 18px; background:var(--panel); border:1px solid var(--border); border-radius:8px; overflow-x:auto; font-size:12px; line-height:1.8; }
+.help-platform { margin:16px 0; border:1px solid var(--border); border-radius:10px; background:var(--panel); }
+.help-platform summary { padding:16px 20px; font-size:15px; font-weight:500; }
+.help-platform>div { padding:0 20px 12px; }
+.help-platform pre { background:var(--bg); }
+@media(max-width:540px) { .help-platform summary { padding:14px; } .help-platform>div { padding:0 14px 10px; } .getting-started pre { padding:12px; } }

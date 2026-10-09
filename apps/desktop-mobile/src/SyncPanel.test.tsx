@@ -1,13 +1,8 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { setLanguage } from './i18n';
 beforeEach(() => setLanguage('zh-CN'));
 import { platform } from './platform';
 
-const renderState = vi.hoisted(() => ({ ssh: false }));
-vi.mock('react', async importOriginal => {
-  const actual = await importOriginal<typeof import('react')>();
-  return { ...actual, useState: (initial: unknown) => actual.useState(renderState.ssh && typeof initial === 'object' && initial !== null && 'protocol' in initial ? { ...initial, protocol: 'ssh' } : initial) };
-});
 import { renderToStaticMarkup } from 'react-dom/server';
 import { SyncPanel } from './SyncPanel';
 import { defaultAutoSync } from './auto-sync';
@@ -18,11 +13,19 @@ function settingsMarkup(enabled: boolean, afterSave = true) {
 }
 
 describe('SSH tools by platform', () => {
+  it('offers only SSH and hides protocol switching and Token configuration', () => {
+    const html = renderToStaticMarkup(<SyncPanel busy={false} run={async action=>action()} onVault={async()=>{}} onReload={async()=>{}} onSync={async()=>{}} syncRevision={0} autoSync={defaultAutoSync} autoPaused={false} onAutoSync={()=>{}}/>);
+    expect(html).toContain('value="SSH"');
+    expect(html).toContain('SSH 仓库 URL');
+    expect(html).toContain('SSH 用户名');
+    expect(html).not.toContain('<select');
+    expect(html).not.toContain('HTTPS');
+    expect(html).not.toContain('Token');
+  });
   const originalDesktop = platform.desktop;
-  afterEach(() => { renderState.ssh = false; platform.desktop = originalDesktop; });
+  afterEach(() => { platform.desktop = originalDesktop; });
   it.each(['Windows', 'macOS', '桌面'])('gates SSH buttons on %s and respects busy state', desktop => {
     platform.desktop = desktop;
-    renderState.ssh = true;
     for (const busy of [false, true]) {
       const html = renderToStaticMarkup(<SyncPanel busy={busy} run={async action=>action()} onVault={async()=>{}} onReload={async()=>{}} onSync={async()=>{}} syncRevision={0} autoSync={defaultAutoSync} autoPaused={false} onAutoSync={()=>{}}/>);
       for (const label of ['选择 SSH 密钥', '检查 SSH Agent']) {

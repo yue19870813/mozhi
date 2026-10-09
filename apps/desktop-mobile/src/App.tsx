@@ -6,17 +6,19 @@ import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react'
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { listen } from '@tauri-apps/api/event';
 import { Menu } from '@tauri-apps/api/menu';
-import { api, aiRequest, errorText, native, selectVault, workspace, type ParsedNote, type SearchResult, type Vault } from './api';
+import { api, aiRequest, errorText, native, selectVault, workspace, type ParsedNote, type SearchResult, type SyncConfig, type Vault } from './api';
 import { DocumentSession } from './session';
 import { Editor } from './Editor';
 import { Preview } from './Preview';
 import { platform } from './platform';
 import brandLogo from './assets/brand-logo.png';
 import { SyncPanel } from './SyncPanel';
+import { requireSshSync } from './sync-settings';
 import { RecoveryPanel } from './RecoveryPanel';
 import { VaultSettings } from './VaultSettings';
 import { AppShell, Icon, useSidebar } from './AppShell';
 import { HomePage } from './HomePage';
+import { GettingStarted } from './GettingStarted';
 import { AiAssistant, emptyAiSession, type AiSession } from './AiAssistant';
 import { AiSettings } from './AiSettings';
 import { AutoSyncSchedule, defaultAutoSync, readAutoSync, writeAutoSync, type AutoSyncSettings } from './auto-sync';
@@ -120,7 +122,7 @@ export default function App(){
       operation.current=true;setBusy(true);
       try{await flush();}finally{operation.current=false;setBusy(false);}
       try{
-        if(automatic){const config=await workspace({action:'config'});if(!config)throw new Error(t("请先保存 Git 同步设置"));}
+        requireSshSync(await workspace<SyncConfig|null>({action:'config'}));
         const result=await workspace<{state:{phase:string;message:string}}>({action:'sync'});
         await refreshAfterSync();setSyncRevision(value=>value+1);
         if(result.state.phase==='conflict')throw new Error(t("Git 同步发生冲突，请在同步设置中处理"));
@@ -367,7 +369,7 @@ export default function App(){
     {tab==='about'&&<AboutPage/>}
     <section className="settings-page" hidden={tab!=='appearance'}><h1>{t("外观")}</h1><p className="subtle">{t("选择适合你的阅读与书写环境。")}</p><div className="setting-row"><span>{t("主题")}</span><div className="segmented">{(['dark','light'] as const).map(value=><button key={value} aria-pressed={theme===value} className={theme===value?'selected':''} onClick={()=>setTheme(value)}>{value==='dark'?t("深色"):t("浅色")}</button>)}</div></div><LanguageSettings/></section>
     <section className="settings-page" hidden={tab!=='vault'}><h1>{t("笔记库")}</h1><p className="subtle">{t("当前笔记库：")}{vault?.name}</p><div className="workspace-toolbar"><button disabled={busy||composing||!native||syncing} onClick={()=>void openVault()}>{t("打开其他笔记库")}</button><button disabled={busy||composing||!native} onClick={()=>void run(async()=>{if(await workspace({action:'export'}))setStatus(t("笔记库已导出"));})}>{t("导出笔记库")}</button></div>{tab==='vault'&&<VaultSettings currentId={vault?.id} disabled={busy||composing||syncing} onOpen={openKnownVault}/>}</section>
-    <section className="help-page" hidden={tab!=='intro'}><h1>{t("使用入门")}</h1><h2>{t("把想法留在本机")}</h2><p>{t("打开一个本地文件夹作为笔记库，在「我的笔记」中新建 Markdown 笔记和目录。")}</p><h2>{t("专注书写")}</h2><p>{t("源码、分栏与预览随时切换。输入会自动保存；保存失败或发现冲突时，请按页面提示协调版本。")}</p><h2>{t("连接知识")}</h2><p>{t("使用 [[笔记名称]] 建立引用，在关联信息中查看反向链接，在知识图谱中探索笔记之间的联系。")}</p><h2>{t("同步与恢复")}</h2><p>{t("在设置中配置 Git 同步、查看恢复记录或导出笔记库。")}</p></section>
+    {tab==='intro'&&<GettingStarted disabled={busy||composing||!native} onSyncSettings={()=>void selectSettings('sync')}/>}
     <section className="help-page" hidden={tab!=='shortcuts'}><h1>{t("快捷键")}</h1><dl className="shortcut-list"><div><dt>{t("搜索笔记")}</dt><dd>{platform.modifier} K</dd></div><div><dt>{t("新建笔记")}</dt><dd>{platform.modifier} N</dd></div><div><dt>{t("保存当前笔记")}</dt><dd>{platform.modifier} S</dd></div></dl></section>
     {tab==='recovery'&&<RecoveryPanel key={vault?.id} busy={busy||composing||syncing} run={run} onRestore={async id=>{const result=await workspace<{path:string}>({action:'restore',id});await reload();setStatus(t("已恢复至 {0}", result.path));}}/>}
     <section hidden={tab!=='lab'} className="lab-panel"><h1>{t("技术验证")}</h1><p className="subtle">{t("验证样本与实际笔记库分开运行。中文组合输入仍需人工操作系统输入法。")}</p><div className="workspace-toolbar"><button disabled={busy} onClick={()=>setLongSample(('# 中文输入样本\n\n知识图谱帮助我整理项目计划。Rust 与 Markdown 混排，标点：预算、计划。\n').repeat(660))}>{t("加载 100 KB 长文")}</button><button disabled={busy||!native} onClick={()=>void run(async()=>setReport(await api.probes()))}>{t("运行搜索 / Git 样本")}</button></div>{report!==null&&<pre className="report-json">{JSON.stringify(report,null,2)}</pre>}{longSample&&<div className="long-sample"><Editor documentKey="long-sample" value={longSample} readOnly={false} onChange={setLongSample} onComposition={composition}/></div>}<div className="probe-graph"><Suspense fallback={null}>{tab==='lab'&&<ProbeGraph/>}</Suspense></div></section>
