@@ -16,6 +16,38 @@ impl Drop for SyncGuard {
 mod sync_tests {
     use super::*;
     #[test]
+    fn dropping_lock_guard_releases_lock_even_when_a_duplicate_remains_open() {
+        let private = tempfile::tempdir().unwrap();
+        let path = private.path().join("vault.lock");
+        let lock = fs::OpenOptions::new()
+            .create(true)
+            .truncate(false)
+            .read(true)
+            .write(true)
+            .open(&path)
+            .unwrap();
+        let contender = fs::OpenOptions::new()
+            .read(true)
+            .write(true)
+            .open(&path)
+            .unwrap();
+        for read in [true, false] {
+            if read {
+                fs2::FileExt::lock_shared(&lock).unwrap();
+            } else {
+                fs2::FileExt::lock_exclusive(&lock).unwrap();
+            }
+            let guard = FileLockGuard(&lock);
+            // Model the duplicated descriptor retained during process creation.
+            let duplicate = lock.try_clone().unwrap();
+            assert!(fs2::FileExt::try_lock_exclusive(&contender).is_err());
+            drop(guard);
+            fs2::FileExt::try_lock_exclusive(&contender).unwrap();
+            fs2::FileExt::unlock(&contender).unwrap();
+            drop(duplicate);
+        }
+    }
+    #[test]
     fn reads_remain_available_while_sync_blocks_writes_and_guard_resets() {
         let root = tempfile::tempdir().unwrap();
         let private = tempfile::tempdir().unwrap();
@@ -35,7 +67,12 @@ mod sync_tests {
         assert!(with_access(&state, true, |a| Ok(a.vault.read("note.md")?)).is_ok());
         assert!(with_active(&state, |_| Ok(())).is_err());
         drop(guard);
-        assert!(with_active(&state, |_| Ok(())).is_ok());
+        let result = with_active(&state, |_| Ok(()));
+        assert!(
+            result.is_ok(),
+            "write access after sync guard reset: {}",
+            result.err().map(|error| error.message).unwrap_or_default()
+        );
         let lock = fs::OpenOptions::new()
             .read(true)
             .write(true)

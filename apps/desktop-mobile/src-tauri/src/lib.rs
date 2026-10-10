@@ -75,6 +75,14 @@ async fn blocking<T: Send + 'static>(
 fn with_active<T>(state: &AppState, f: impl FnOnce(&mut Active) -> ApiResult<T>) -> ApiResult<T> {
     with_access(state, false, f)
 }
+struct FileLockGuard<'a>(&'a fs::File);
+impl Drop for FileLockGuard<'_> {
+    fn drop(&mut self) {
+        // Closing our descriptor alone may leave flock held by a duplicate
+        // inherited by a concurrently spawned child process on Unix.
+        let _ = fs2::FileExt::unlock(self.0);
+    }
+}
 fn with_access<T>(
     state: &AppState,
     read: bool,
@@ -96,10 +104,13 @@ fn with_access<T>(
         .write(true)
         .open(active.private.join("sync.lock"))
         .map_err(failure)?;
-    if !read {
+    let _sync_guard = if !read {
         fs2::FileExt::try_lock_shared(&sync_lock)
             .map_err(|_| failure("笔记库正在同步，请等待同步完成后修改"))?;
-    }
+        Some(FileLockGuard(&sync_lock))
+    } else {
+        None
+    };
     let lock = fs::OpenOptions::new()
         .create(true)
         .truncate(false)
@@ -113,6 +124,7 @@ fn with_access<T>(
         fs2::FileExt::try_lock_exclusive(&lock)
     };
     result.map_err(|_| failure("笔记库正在被另一个窗口或进程操作"))?;
+    let _vault_guard = FileLockGuard(&lock);
     f(active)
 }
 #[derive(Serialize)]
