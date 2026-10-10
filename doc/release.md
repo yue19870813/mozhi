@@ -36,6 +36,8 @@ Windows 平台的 `productName` 为 `MoZhi`，安装器和卸载列表使用该�
 
 macOS 发布先用 Tauri 生成 `.app`，再由 `scripts/macos/build-dmg.sh` 使用 `hdiutil makehybrid` 和 `convert` 生成压缩 DMG，并执行 `hdiutil verify`。镜像包含应用和 Applications 快捷方式；不挂载可写镜像，不依赖 Finder AppleScript，也不设置自定义背景或图标位置。这用于避开托管 runner 上 `bundle_dmg.sh` 的失败路径。Vite 的 500 kB chunk 提示只是警告，与 DMG 打包失败无关。
 
+macOS 默认使用 `signingIdentity: "-"` 对完整应用执行 ad-hoc 签名，并在制作 DMG 前检查签名与资源封印。仅有链接器签名的可执行文件不能替代完整 `.app` 签名，否则下载后可能出现“已损坏”提示。ad-hoc 签名不提供开发者身份或 Apple 公证，不能保证通过 Gatekeeper；面向普通用户分发仍需配置 Developer ID 签名与公证。`hdiutil verify` 只检查镜像完整性，不检查应用签名或公证状态。
+
 ## 失败与重试
 
 - 任一构建失败，不创建 tag 或 Release；版本准备 commit 可能已经留在默认分支。优先用失败运行的 **Re-run failed jobs**，沿用相同源码。

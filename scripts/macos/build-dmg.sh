@@ -9,6 +9,9 @@ fi
 
 app_path="$1"
 output_path="$2"
+# Verify the complete app bundle, not just its Mach-O executable. A linker-only
+# ad-hoc signature lacks the resource seal and is invalid for a distributed app.
+codesign --verify --deep --strict --verbose=2 "$app_path"
 app_name="$(basename "$app_path")"
 volume_name="${app_name%.app}"
 mkdir -p "$(dirname "$output_path")"
@@ -21,6 +24,7 @@ work_dir="$(mktemp -d "${TMPDIR:-/tmp}/mozhi-dmg.XXXXXX")"
 trap 'rm -rf "$work_dir"' EXIT
 mkdir "$work_dir/staging"
 ditto "$app_path" "$work_dir/staging/$app_name"
+codesign --verify --deep --strict --verbose=2 "$work_dir/staging/$app_name"
 ln -s /Applications "$work_dir/staging/Applications"
 
 # makehybrid avoids the writable-image create/attach/resize sequence used by
