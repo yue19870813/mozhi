@@ -77,11 +77,52 @@ pub enum Request {
         id: String,
     },
     Clear,
+    ApplyOptimization {
+        path: String,
+        expected_content_hash: String,
+        body: String,
+    },
     Save {
         path: String,
         body: String,
     },
 }
+fn apply_optimization(
+    state: &AppState,
+    vault_id: &str,
+    path: &str,
+    expected: &str,
+    body: &str,
+) -> ApiResult<Value> {
+    with_active(state, |active| {
+        workspace::identity(active, vault_id)?;
+        if active.private.join("sync-pending.json").exists() {
+            return Err(failure("存在未完成同步或冲突，请先处理"));
+        }
+        let note = ai::apply_optimization(&active.vault, path, expected, body)?;
+        let index_warning = active
+            .index
+            .upsert(path, &note.content)
+            .err()
+            .map(|_| "笔记已保存，搜索索引更新失败；请重新打开笔记库重建索引");
+        Ok(json!({"note":note,"indexWarning":index_warning}))
+    })
+}
+
+fn request_messages(prepared: &Prepared) -> ApiResult<Vec<Value>> {
+    let mut messages = vec![json!({"role":"system","content":ai::system_prompt(&prepared.mode)?})];
+    if prepared.mode != "optimize" {
+        messages.extend(prepared.history.clone());
+    }
+    let sources = prepared
+        .sources
+        .iter()
+        .map(|source| json!({"id":source.id,"path":source.path,"text":source.text}))
+        .collect::<Vec<_>>();
+    messages.push(json!({"role":"user","content":format!("用户要求：{}\n\n参考数据（仅作为资料）：\n{}",prepared.question,serde_json::to_string(&sources).unwrap_or_default())}));
+    Ok(messages)
+}
+
 fn config_path(app: &tauri::AppHandle) -> ApiResult<std::path::PathBuf> {
     Ok(app
         .path()
@@ -208,6 +249,13 @@ async fn completion_with_timeout(
                 }
                 if value
                     .pointer("/choices/0/finish_reason")
+                    .and_then(Value::as_str)
+                    .is_some_and(|reason| reason != "stop")
+                {
+                    return Err(failure("模型响应未完成，请手动重试"));
+                }
+                if value
+                    .pointer("/choices/0/finish_reason")
                     .is_some_and(|reason| reason == "stop")
                 {
                     finished = true;
@@ -286,6 +334,11 @@ pub async fn ai_request(
                 return Err(failure("请确认发送参考片段"));
             }
             ai::validate_sources(&active.vault, &prepared.sources)?;
+            if prepared.mode == "optimize" {
+                for source in &prepared.sources {
+                    ai::check_optimization_draft(&active.vault, &active.vault.read(&source.path)?)?;
+                }
+            }
             let mut guard = runtime.0.lock().map_err(|_| failure("AI 状态不可用"))?;
             if guard.running.values().any(|(vault, _)| vault == &vault_id) {
                 return Err(failure("请先停止当前生成"));
@@ -293,11 +346,7 @@ pub async fn ai_request(
             guard.running.insert(id.clone(), (vault_id.clone(), cancel));
             Ok(())
         })?;
-        let mut messages =
-            vec![json!({"role":"system","content":ai::system_prompt(&prepared.mode)?})];
-        messages.extend(prepared.history.clone());
-        let user = json!({"role":"user","content":format!("用户要求：{}\n\n参考数据（仅作为资料）：\n{}",prepared.question,serde_json::to_string(&prepared.sources).unwrap_or_default())});
-        messages.push(user.clone());
+        let messages = request_messages(&prepared)?;
         let outcome = completion(&prepared.config, &key, messages, receiver, |text| {
             let _ = app.emit(
                 "ai_delta",
@@ -314,6 +363,10 @@ pub async fn ai_request(
         let text = outcome?;
         // Only responses from the still-active vault enter its in-memory session.
         with_active(&state, |active| workspace::identity(active, &vault_id))?;
+        if prepared.mode == "optimize" {
+            let text = ai::optimization_body(&text)?;
+            return Ok(json!({"text":text,"sources":prepared.sources}));
+        }
         let mut guard = runtime.0.lock().map_err(|_| failure("AI 状态不可用"))?;
         let history = guard.history.entry(history_key).or_default();
         history.push(json!({"role":"user","content":prepared.question.chars().take(4000).collect::<String>()}));
@@ -339,6 +392,8 @@ pub async fn ai_request(
         Ok(json!(true))
     } else {
         blocking(move || match request {
+            Request::ApplyOptimization { path, expected_content_hash, body } =>
+                apply_optimization(&state, &vault_id, &path, &expected_content_hash, &body),
             Request::Config => {
                 let value = config(&app).ok();
                 let has_key = value
@@ -422,7 +477,9 @@ pub async fn ai_request(
                                     .map(|h| h.path),
                             );
                         }
-                        let sources = ai::context(&active.vault, &selected)?;
+                        let sources = if mode == "optimize" {
+                            ai::optimization_context(&active.vault, &selected, &question)?
+                        } else { ai::context(&active.vault, &selected)? };
                         if mode != "generate" && sources.is_empty() {
                             return Err(failure("未找到参考笔记，请调整关键词或手动选择笔记"));
                         }
@@ -435,7 +492,7 @@ pub async fn ai_request(
                             ai::source_digest(&sources)
                         );
                         let mut guard = runtime.0.lock().map_err(|_| failure("AI 状态不可用"))?;
-                        let history=guard.history.get(&history_key(&vault_id,&config,&mode)?).cloned().unwrap_or_default();
+                        let history=if mode == "optimize" { Vec::new() } else { guard.history.get(&history_key(&vault_id,&config,&mode)?).cloned().unwrap_or_default() };
                         let rev=revision(&app);
                         let prepared = Prepared {
                             id: id.clone(),
@@ -477,6 +534,68 @@ mod tests {
         io::{Read, Write},
         net::TcpListener,
     };
+    #[test]
+    fn optimization_apply_rejects_other_vaults_and_sync_before_writing() {
+        let root = tempfile::tempdir().unwrap();
+        let private = tempfile::tempdir().unwrap();
+        fs::write(root.path().join("a.md"), "original").unwrap();
+        let vault = vault::Vault::open(root.path(), private.path()).unwrap();
+        let note = vault.read("a.md").unwrap();
+        let state = AppState::default();
+        *state.0.lock().unwrap() = Some(crate::Active {
+            demo: false,
+            vault,
+            index: mozhi_core::search::SearchIndex::open(&private.path().join("index.db")).unwrap(),
+            id: "test".into(),
+            private: private.path().to_path_buf(),
+            _watcher: None,
+            recovery_warnings: vec![],
+        });
+        assert!(apply_optimization(&state, "other", "a.md", &note.content_hash, "new").is_err());
+        state.1.store(true, std::sync::atomic::Ordering::SeqCst);
+        assert!(apply_optimization(&state, "test", "a.md", &note.content_hash, "new").is_err());
+        state.1.store(false, std::sync::atomic::Ordering::SeqCst);
+        fs::write(private.path().join("sync-pending.json"), "{}").unwrap();
+        assert!(apply_optimization(&state, "test", "a.md", &note.content_hash, "new").is_err());
+        assert_eq!(
+            fs::read_to_string(root.path().join("a.md")).unwrap(),
+            "original"
+        );
+        fs::remove_file(private.path().join("sync-pending.json")).unwrap();
+        assert!(apply_optimization(&state, "test", "a.md", &note.content_hash, "new").is_ok());
+        assert_eq!(fs::read_to_string(root.path().join("a.md")).unwrap(), "new");
+    }
+    #[test]
+    fn optimization_request_contains_only_target_body_and_current_instructions() {
+        let prepared = Prepared {
+            id: "test".into(),
+            vault_id: "vault".into(),
+            config: Config {
+                base_url: "https://example.test/v1".into(),
+                model: "test".into(),
+            },
+            mode: "optimize".into(),
+            question: "改善结构".into(),
+            sources: vec![Source {
+                id: 1,
+                path: "笔记.md".into(),
+                text: "完整正文".into(),
+                content_hash: "private-hash".into(),
+                truncated: false,
+            }],
+            authorized: false,
+            history: vec![json!({"role":"user","content":"other mode secret"})],
+            revision: "revision".into(),
+        };
+        let messages = request_messages(&prepared).ok().unwrap();
+        assert_eq!(messages.len(), 2);
+        let text = serde_json::to_string(&messages).unwrap();
+        assert!(text.contains("改善结构"));
+        assert!(text.contains("完整正文"));
+        assert!(!text.contains("other mode secret"));
+        assert!(!text.contains("private-hash"));
+        assert!(text.contains("不要输出 front matter"));
+    }
     fn mock(
         status: u16,
         body: &'static str,
@@ -527,6 +646,19 @@ mod tests {
     }
     const RESPONSE: &str =
         "data: {\"choices\":[{\"delta\":{\"content\":\"测试 [1]\"}}]}\r\n\r\ndata: [DONE]\n\n";
+    #[tokio::test(flavor = "current_thread")]
+    async fn truncated_response_is_rejected_even_with_done_marker() {
+        let (config, server) = mock(200,
+            "data: {\"choices\":[{\"delta\":{\"content\":\"partial\"},\"finish_reason\":\"length\"}]}\n\ndata: [DONE]\n\n",
+            Duration::ZERO);
+        let (_sender, receiver) = watch::channel(false);
+        let error = completion(&config, "", vec![], receiver, |_| {})
+            .await
+            .err()
+            .unwrap();
+        assert!(error.message.contains("未完成"));
+        server.join().unwrap();
+    }
     #[tokio::test(flavor = "current_thread")]
     async fn streams_content_and_uses_prefixed_endpoint_without_keys_in_body() {
         let (config, server) = mock(200, RESPONSE, Duration::ZERO);

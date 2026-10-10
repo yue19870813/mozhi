@@ -25,7 +25,7 @@ pub struct ParsedNote {
     pub references: Vec<Reference>,
     pub issues: Vec<String>,
 }
-fn frontmatter(body: &str) -> (usize, Option<&str>) {
+pub(crate) fn frontmatter(body: &str) -> (usize, Option<&str>) {
     let Some(rest) = body
         .strip_prefix("---\r\n")
         .or_else(|| body.strip_prefix("---\n"))

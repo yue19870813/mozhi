@@ -15,9 +15,9 @@ describe('AI assistant',()=>{
     expect(html).toContain('<code>[1]</code>');
     expect(citationParts('[1] [2]',sources).filter(part=>part.source)).toHaveLength(1);
   });
-  it('starts with no output or authorization and exposes all three modes',()=>{
-    const html=renderToStaticMarkup(<AiAssistant vaultId="demo" notes={[]} directories={[]} initial={emptyAiSession()} onSession={()=>{}} onOpen={()=>{}} onSettings={()=>{}} onSave={async()=>false} summaryPath=""/>);
-    expect(html).toContain('笔记库问答');expect(html).toContain('总结笔记');expect(html).toContain('生成笔记');
+  it('starts with no output or authorization and exposes all four modes',()=>{
+    const html=renderToStaticMarkup(<AiAssistant vaultId="demo" notes={[]} directories={[]} initial={emptyAiSession()} onSession={()=>{}} onOpen={()=>{}} onSettings={()=>{}} onSave={async()=>false} beforeOptimize={async()=>true} onApplyOptimization={async()=>false} summaryPath=""/>);
+    expect(html).toContain('笔记库问答');expect(html).toContain('总结笔记');expect(html).toContain('生成笔记');expect(html).toContain('笔记优化');
     expect(html).not.toContain('checked=""');expect(html).not.toContain('保存为新笔记');
   });
   it('does not expose another vault session through default state',()=>{

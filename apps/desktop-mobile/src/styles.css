@@ -313,3 +313,31 @@ summary { cursor:pointer; }
 .help-platform>div { padding:0 20px 12px; }
 .help-platform pre { background:var(--bg); }
 @media(max-width:540px) { .help-platform summary { padding:14px; } .help-platform>div { padding:0 14px 10px; } .getting-started pre { padding:12px; } }
+
+.ai-mode-tabs { overflow-x:auto; }
+.ai-mode-tabs button { flex-shrink:0; }
+.ai-optimize-workbench { gap:20px; }
+.ai-optimization-target { display:flex; align-items:center; gap:8px; color:var(--muted); font-size:12px; margin:12px 0; overflow-wrap:anywhere; }
+.ai-compare { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); border:1px solid var(--border); border-radius:10px; overflow:hidden; background:var(--panel); }
+.ai-compare>section { min-width:0; }
+.ai-compare-original { border-right:1px solid var(--border); }
+.ai-compare header { min-height:44px; display:flex; align-items:center; justify-content:space-between; gap:8px; padding:8px 14px; border-bottom:1px solid var(--border); }
+.ai-compare h2 { font-size:12px; font-weight:500; margin:0; }
+.ai-compare header span,.ai-compare header button { font-size:11px; color:var(--muted); }
+.ai-compare header button { padding:3px 8px; background:transparent; }
+.ai-compare-content { padding:16px; max-height:52vh; min-height:240px; overflow:auto; }
+.ai-compare-content .ai-citations:empty { display:none; }
+.ai-optimization-editor { display:block; width:100%; height:52vh; min-height:240px; resize:vertical; border:0; border-radius:0; background:var(--panel); color:var(--text); padding:16px; font:12px/1.8 ui-monospace,monospace; }
+.ai-optimization-actions { display:flex; flex-wrap:wrap; gap:10px; margin:16px 0 4px; }
+.ai-optimization-actions button { font-size:12px; }
+.ai-optimization-limit { font-size:11px; line-height:1.8; }
+.ai-applied { display:flex; align-items:center; flex-wrap:wrap; gap:8px; font-size:12px; color:var(--accent); }
+.ai-compare-switch { display:none; }
+@media(max-width:760px) {
+  .ai-compare { grid-template-columns:minmax(0,1fr); }
+  .ai-compare-original { border:0; }
+  .ai-compare[data-view="original"] .ai-compare-result,.ai-compare[data-view="result"] .ai-compare-original { display:none; }
+  .ai-compare-switch { display:flex; gap:4px; margin-bottom:10px; }
+  .ai-compare-switch button { font-size:12px; background:transparent; }
+  .ai-compare-switch button[aria-pressed="true"] { background:var(--selected); color:var(--accent); }
+}

@@ -6,7 +6,7 @@ import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react'
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { listen } from '@tauri-apps/api/event';
 import { Menu } from '@tauri-apps/api/menu';
-import { api, aiRequest, errorText, native, selectVault, workspace, type ParsedNote, type SearchResult, type SyncConfig, type Vault } from './api';
+import { api, aiRequest, errorText, native, selectVault, workspace, type Note, type ParsedNote, type SearchResult, type SyncConfig, type Vault } from './api';
 import { DocumentSession } from './session';
 import { Editor } from './Editor';
 import { Preview } from './Preview';
@@ -364,7 +364,23 @@ export default function App(){
     <footer className="document-footer"><span>{composing?t("中文组合输入中"):t("750 ms 自动保存")} · {platform.modifier} {t("S 保存 ·")} {platform.modifier} {t("N 新建")}</span><span>{t("本地 Markdown ·")} {t(platform.desktop)} MVP</span></footer></section>
     {graphVisited&&<div className="page-slot" hidden={module!=='graph'}><Suspense fallback={<p className="notice">{t("正在加载图谱…")}</p>}><KnowledgeGraph key={vault?.id} active={module==='graph'} theme={theme} filters={graphFilters} current={path} revision={revision} onOpen={p=>void navigate(p)}/></Suspense></div>}
     {syncVisited&&<div className="page-slot" hidden={tab!=='sync'}><SyncPanel key={vault?.id} busy={busy||composing||syncing} run={run} onVault={adopt} onReload={reload} onSync={()=>syncNow()} syncRevision={syncRevision} autoSync={autoSync} autoPaused={autoPaused} onAutoSync={configureAutoSync}/></div>}
-    {aiVisited&&vault&&<div className="page-slot" hidden={module!=='ai'}><AiAssistant key={vault.id} vaultId={vault.id} notes={notes.length?notes:vault.entries.map(note=>({path:note.path,title:note.path.replace(/\.md$/i,'')}))} directories={tree.filter(entry=>entry.isDirectory).map(entry=>entry.path)} initial={aiSessions.current.get(vault.id)??emptyAiSession()} onSession={rememberAiSession} onOpen={next=>void navigate(next)} onSettings={()=>void selectSettings('ai')} summaryPath={summaryPath} onSave={async(next,body)=>{const saved=await run(async()=>{const result=await aiRequest<{indexWarning?:string}>(vault.id,{action:'save',path:next,body});autoSchedule.current.savedAt=Date.now();try{await reload();}catch{setError(t("笔记已保存，请重新打开笔记库刷新索引"));}if(result.indexWarning)setError(result.indexWarning);setStatus(t("已创建 {0}", next));return true;});return saved===true;}}/></div>}
+    {aiVisited&&vault&&<div className="page-slot" hidden={module!=='ai'}><AiAssistant key={vault.id} vaultId={vault.id} notes={notes.length?notes:vault.entries.map(note=>({path:note.path,title:note.path.replace(/\.md$/i,'')}))} directories={tree.filter(entry=>entry.isDirectory).map(entry=>entry.path)} initial={aiSessions.current.get(vault.id)??emptyAiSession()} onSession={rememberAiSession} onOpen={next=>void navigate(next)} onSettings={()=>void selectSettings('ai')} summaryPath={summaryPath} beforeOptimize={async()=>{
+      if(recovery!==null)throw new Error(t("笔记存在待恢复草稿，请先打开笔记处理后再优化"));
+      const id=vault.id;
+      return await run(async()=>vaultRef.current?.id===id)===true;
+    }} onApplyOptimization={async(next,hash,body)=>{
+      if(recovery!==null)throw new Error(t("笔记存在待恢复草稿，请先打开笔记处理后再优化"));
+      const id=vault.id;
+      return await run(async()=>{
+        if(vaultRef.current?.id!==id)throw new Error(t("笔记库已切换"));
+        const result=await aiRequest<{note:Note;indexWarning?:string}>(id,{action:'apply_optimization',path:next,expectedContentHash:hash,body});
+        autoSchedule.current.savedAt=Date.now();
+        if(session.current?.note.path===next){session.current=new DocumentSession(result.note,api.save,setError);setContent(result.note.content);setRecovery(null);}
+        try{await updateKnowledge();}catch{setError(t("笔记已保存，请重新打开笔记库刷新索引"));}
+        if(result.indexWarning)setError(result.indexWarning);
+        setStatus(t("已应用到原笔记"));return true;
+      })===true;
+    }} onSave={async(next,body)=>{const saved=await run(async()=>{const result=await aiRequest<{indexWarning?:string}>(vault.id,{action:'save',path:next,body});autoSchedule.current.savedAt=Date.now();try{await reload();}catch{setError(t("笔记已保存，请重新打开笔记库刷新索引"));}if(result.indexWarning)setError(result.indexWarning);setStatus(t("已创建 {0}", next));return true;});return saved===true;}}/></div>}
     {module==='settings'&&settingsPage==='ai'&&<AiSettings/>}
     {tab==='about'&&<AboutPage/>}
     <section className="settings-page" hidden={tab!=='appearance'}><h1>{t("外观")}</h1><p className="subtle">{t("选择适合你的阅读与书写环境。")}</p><div className="setting-row"><span>{t("主题")}</span><div className="segmented">{(['dark','light'] as const).map(value=><button key={value} aria-pressed={theme===value} className={theme===value?'selected':''} onClick={()=>setTheme(value)}>{value==='dark'?t("深色"):t("浅色")}</button>)}</div></div><LanguageSettings/></section>
