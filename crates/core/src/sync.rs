@@ -1233,7 +1233,11 @@ mod tests {
             let credential =
                 ssh_credential(&config, url_user, git2::CredentialType::USERNAME).unwrap();
             assert!(credential.has_username());
-            assert_eq!(credential.credtype(), git2::CredentialType::USERNAME.bits());
+            // libgit2's C enum is i32 on MSVC targets and u32 elsewhere.
+            assert_eq!(
+                i64::from(credential.credtype()),
+                i64::from(git2::CredentialType::USERNAME.bits())
+            );
         }
         assert!(ssh_credential(
             &ssh("github.com:user/repo.git"),
