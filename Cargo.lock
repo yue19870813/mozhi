@@ -2048,7 +2048,7 @@ dependencies = [
 
 [[package]]
 name = "mozhi"
-version = "0.3.2"
+version = "0.3.3"
 dependencies = [
  "base64 0.22.1",
  "fs2",
@@ -2072,7 +2072,7 @@ dependencies = [
 
 [[package]]
 name = "mozhi-core"
-version = "0.3.2"
+version = "0.3.3"
 dependencies = [
  "fs2",
  "git2",
@@ -2095,7 +2095,7 @@ dependencies = [
 
 [[package]]
 name = "mozhi-windows"
-version = "0.3.2"
+version = "0.3.3"
 dependencies = [
  "sha2",
  "tempfile",
