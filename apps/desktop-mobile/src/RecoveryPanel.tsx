@@ -26,14 +26,14 @@ export function RecoveryPanel({ busy, run, onRestore }: { busy: boolean; run: <T
     return () => { mounted.current = false; };
   }, []);
   const disabled = busy || loading || !native;
-  return <section className="lab-panel recovery-panel">
+  return <section className="settings-page recovery-panel">
     <h1>{t("恢复记录")}</h1>
     <p className="subtle">{t("删除、移动及链接改写前的副本保存在本机。恢复到新目录，不覆盖现有内容。")}</p>
     <div className="recovery-summary">
       <strong>{loading ? t("正在读取…") : overview ? t("已用 {0} · {1} 条记录", size(overview.bytes), overview.count) : native ? t("未能读取恢复记录") : t("请在桌面应用中管理恢复记录")}</strong>
       {overview && <span className="subtle">{overview.protectedCount} {t("条受保护 · 当前容量上限")} {size(overview.policy.maxBytes)}</span>}
     </div>
-    <form onSubmit={event => { event.preventDefault(); void run(async () => {
+    <form className="settings-card" onSubmit={event => { event.preventDefault(); void run(async () => {
       const value = await workspace<Overview>({ action: 'recovery_configure', policy });
       if (mounted.current) { setOverview(value); setPolicy(value.policy); setPreview(null); setMessage(t("保留设置已保存，已按新规则检查清理。")); }
     }); }}>
@@ -44,7 +44,7 @@ export function RecoveryPanel({ busy, run, onRestore }: { busy: boolean; run: <T
       </div>
       <p className="subtle">{t("设置仅用于当前笔记库的操作恢复副本，不影响草稿和 Git 历史。保存后即按新规则清理；自动删除的副本无法恢复。")}</p>
       <p className="subtle">{t("先清理过期记录，再按从旧到新的顺序清理超额记录。最近 24 小时、未完成及异常记录受保护，可能暂时超限。旧记录从首次纳入管理时开始计时。")}</p>
-      <div className="workspace-toolbar"><button type="submit" disabled={disabled}>{t("保存保留设置")}</button><button type="button" disabled={disabled} onClick={() => void run(async () => {
+      <div className="workspace-toolbar"><button className="primary" type="submit" disabled={disabled}>{t("保存保留设置")}</button><button type="button" disabled={disabled} onClick={() => void run(async () => {
         const plan = await workspace<Plan>({ action: 'recovery_preview' });
         if (mounted.current) { setPreview(plan.candidates.length ? plan : null); setMessage(plan.candidates.length ? '' : t("暂无可清理的过期记录。")); }
       })}>{t("清理过期记录")}</button></div>

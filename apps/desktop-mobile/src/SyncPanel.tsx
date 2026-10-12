@@ -1,3 +1,4 @@
+import { SettingsSwitch } from './SettingsSwitch';
 import { t, useLanguage, dateTime } from './i18n';
 import { platform } from './platform';
 import { useEffect, useState } from 'react';
@@ -14,16 +15,16 @@ export function SyncPanel({ busy, run, onVault, onReload, onSync, syncRevision, 
   async function resolve(){await run(async()=>{const result=await workspace<{state:SyncState}>({action:'resolve',decisions:Object.entries(decisions).map(([path,value])=>({path,...value}))});setState(result.state);setDecisions({});await onReload();});}
   function choose(c:Conflict,choice:string){setDecisions(d=>({...d,[c.path]:{choice,content:d[c.path]?.content??c.local??c.remote??''}}));}
   const sshTools=platform.desktop==='macOS'||platform.desktop==='Windows';
-  return <section className="lab-panel"><p className="eyebrow">YOUR NOTES, EVERYWHERE</p><h1>{t("同步与恢复")}</h1><p className="subtle">{t("每个笔记库使用固定分支。先保存本地内容，再获取、合并和推送。")}</p>
-    <div className="settings-grid"><label>{t("同步协议")}<input value="SSH" readOnly/></label><label>{t("SSH 仓库 URL")}<input value={config.url} onChange={e=>setConfig({...config,url:e.target.value})} placeholder="ssh://git@github.com/you/notes.git"/></label><label>{t("分支")}<input value={config.branch} onChange={e=>setConfig({...config,branch:e.target.value})}/></label><label>{t("SSH 用户名")}<input value={config.username} onChange={e=>setConfig({...config,username:e.target.value})}/></label></div>
+  return <section className="settings-page sync-settings"><h1>{t("同步与恢复")}</h1><p className="subtle">{t("每个笔记库使用固定分支。先保存本地内容，再获取、合并和推送。")}</p>
+    <div className="settings-card"><div className="settings-grid"><label>{t("同步协议")}<input value="SSH" readOnly/></label><label>{t("SSH 仓库 URL")}<input value={config.url} onChange={e=>setConfig({...config,url:e.target.value})} placeholder="ssh://git@github.com/you/notes.git"/></label><label>{t("分支")}<input value={config.branch} onChange={e=>setConfig({...config,branch:e.target.value})}/></label><label>{t("SSH 用户名")}<input value={config.username} onChange={e=>setConfig({...config,username:e.target.value})}/></label></div>
     <p className="subtle">{t("SSH 使用系统 Agent，私钥和密码不保存在墨知中。")}{platform.desktop==='Windows'?t("Windows 使用 OpenSSH Agent。首次使用请点击「检查 SSH Agent」查看服务状态；加密私钥将在系统密码框中解锁。"):!sshTools&&t("请先通过系统 ssh-add 加载私钥。")}</p>
-    <div className="workspace-toolbar"><button disabled={busy} onClick={()=>void run(async()=>{await workspace({action:'configure',config});setMessage(t("同步设置已保存"));})}>{t("保存设置")}</button><button disabled={busy||!sshTools} onClick={()=>void run(async()=>{setMessage('');const result=await api.selectSshKey();setMessage(result?t("SSH 密钥已加载，Agent 中有 {0} 把密钥", result.keyCount):t("已取消选择 SSH 密钥"));})}>{t("选择 SSH 密钥")}</button><button disabled={busy||!sshTools} onClick={()=>void run(async()=>{setMessage('');const result=await api.checkSshAgent();setMessage(t("SSH Agent 已连接，已加载 {0} 把密钥；仓库权限将在克隆或同步时验证", result.keyCount));})}>{t("检查 SSH Agent")}</button><button className="primary" disabled={busy||state?.phase==='conflict'} onClick={()=>void syncNow()}>{t("立即同步")}</button></div>
-    <section className="auto-sync-settings">
+    <div className="workspace-toolbar"><button className="primary" disabled={busy} onClick={()=>void run(async()=>{await workspace({action:'configure',config});setMessage(t("同步设置已保存"));})}>{t("保存设置")}</button><button disabled={busy||!sshTools} onClick={()=>void run(async()=>{setMessage('');const result=await api.selectSshKey();setMessage(result?t("SSH 密钥已加载，Agent 中有 {0} 把密钥", result.keyCount):t("已取消选择 SSH 密钥"));})}>{t("选择 SSH 密钥")}</button><button disabled={busy||!sshTools} onClick={()=>void run(async()=>{setMessage('');const result=await api.checkSshAgent();setMessage(t("SSH Agent 已连接，已加载 {0} 把密钥；仓库权限将在克隆或同步时验证", result.keyCount));})}>{t("检查 SSH Agent")}</button><button className="primary" disabled={busy||state?.phase==='conflict'} onClick={()=>void syncNow()}>{t("立即同步")}</button></div>
+    </div><section className="auto-sync-settings">
       <h2>{t("自动同步")}</h2>
-      <label><input type="checkbox" checked={autoSync.enabled} onChange={e=>onAutoSync({...autoSync,enabled:e.target.checked})}/>{t("启用自动同步")}</label>
+      <label className="settings-toggle-row"><span>{t("启用自动同步")}</span><SettingsSwitch label={t("启用自动同步")} checked={autoSync.enabled} onChange={e=>onAutoSync({...autoSync,enabled:e.target.checked})}/></label>
       <div className="workspace-toolbar">
-        <label><input type="checkbox" disabled={!autoSync.enabled} checked={autoSync.onOpen} onChange={e=>onAutoSync({...autoSync,onOpen:e.target.checked})}/>{t("打开笔记库时同步")}</label>
-        <label><input type="checkbox" disabled={!autoSync.enabled} checked={autoSync.afterSave} onChange={e=>onAutoSync({...autoSync,afterSave:e.target.checked})}/>{t("保存后空闲同步")}</label>
+        <label className="settings-toggle-row"><span>{t("打开笔记库时同步")}</span><SettingsSwitch label={t("打开笔记库时同步")} disabled={!autoSync.enabled} checked={autoSync.onOpen} onChange={e=>onAutoSync({...autoSync,onOpen:e.target.checked})}/></label>
+        <label className="settings-toggle-row"><span>{t("保存后空闲同步")}</span><SettingsSwitch label={t("保存后空闲同步")} disabled={!autoSync.enabled} checked={autoSync.afterSave} onChange={e=>onAutoSync({...autoSync,afterSave:e.target.checked})}/></label>
       </div>
       <div className="workspace-toolbar">
         <label>{t("空闲时间（秒）")} <input aria-label={t("自动同步空闲时间")} type="number" min={10} max={600} step={1} disabled={!autoSync.enabled||!autoSync.afterSave} value={autoSync.idleSeconds} onChange={e=>{const value=Number(e.target.value);if(Number.isInteger(value)&&value>=10&&value<=600)onAutoSync({...autoSync,idleSeconds:value});}}/></label>

@@ -419,3 +419,48 @@ summary { cursor:pointer; }
 }
 @media (prefers-reduced-motion:reduce) { .settings-switch>span,.settings-switch>span::after { transition:none; } }
 
+/* Shared desktop settings language: typography, surfaces and controls. */
+.settings-page {
+  --settings-title:24px; --settings-heading:14px; --settings-body:13px; --settings-caption:12px;
+  font-size:var(--settings-body); line-height:1.65; -webkit-font-smoothing:antialiased;
+}
+.settings-page>* { max-width:880px; margin-left:auto; margin-right:auto; }
+.settings-page h1,.settings-page .mcp-page-header h1 { font-size:var(--settings-title); font-weight:550; line-height:1.3; letter-spacing:-.6px; margin-top:0; margin-bottom:10px; }
+.settings-page h2,.settings-page h3,.settings-page .mcp-card-heading h2 { font-size:var(--settings-heading); font-weight:550; line-height:1.5; letter-spacing:0; }
+.settings-page>.subtle,.settings-page .mcp-page-header p { font-size:var(--settings-caption); line-height:1.8; margin-top:0; margin-bottom:28px; }
+.settings-page .subtle,.settings-page .mcp-hint,.settings-page .mcp-toggle-row small,.settings-page .semantic-settings p { font-size:var(--settings-caption); line-height:1.8; }
+.settings-card,.settings-page .semantic-settings,.settings-page .auto-sync-settings,.settings-page .clone-section,.settings-page .vault-history {
+  padding:22px 24px; margin-top:16px; margin-bottom:16px; border:1px solid var(--border); border-radius:14px; background:var(--panel);
+}
+.settings-page .semantic-settings,.settings-page .vault-history { max-width:880px; }
+.settings-page .settings-grid { margin-top:0; }
+.settings-page .setting-row { max-width:none; margin-top:0; padding:16px 0; font-size:var(--settings-body); }
+.settings-card .setting-row:last-child { border-bottom:0; }
+.settings-page label,.settings-page .mcp-field>span { font-size:var(--settings-caption); }
+.settings-page input:not([type=checkbox]),.settings-page select {
+  height:38px; padding:8px 12px; border:1px solid var(--border); border-radius:8px;
+  background-color:var(--bg); color:var(--text); font-size:var(--settings-body); line-height:20px;
+}
+.settings-page input:read-only { color:var(--muted); }
+.settings-page button,.settings-page .workspace-toolbar button,.settings-page .mcp-settings button { font-size:12px; font-weight:450; padding:7px 12px; border-radius:7px; }
+.settings-page .workspace-toolbar { gap:8px; margin:16px 0; }
+.settings-page .workspace-toolbar:last-child { margin-bottom:0; }
+.settings-page button.primary,.settings-page .mcp-save-button { background:var(--selected); color:var(--accent); border-color:transparent; }
+.settings-page .segmented,.mcp-client-tabs { padding:3px; gap:3px; background:var(--bg); border:1px solid var(--border); border-radius:7px; }
+.settings-page .segmented button,.settings-page .mcp-client-tabs button { font-size:12px; padding:4px 10px; border:0; border-radius:4px; color:var(--muted); background:transparent; }
+.settings-page .segmented button.selected,.settings-page .mcp-client-tabs button[aria-selected=true] { color:var(--text); background:var(--panel); box-shadow:0 1px 3px #00000012; }
+.settings-toggle-row { display:flex; align-items:center; justify-content:space-between; gap:20px; padding:12px 0; cursor:pointer; font-size:var(--settings-body); }
+.settings-page .auto-sync-settings>.settings-toggle-row,.settings-page .semantic-toggle { font-size:var(--settings-body); }
+.settings-page .auto-sync-settings .workspace-toolbar:has(.settings-toggle-row) { display:grid; grid-template-columns:1fr; gap:0; }
+.settings-page .auto-sync-settings .settings-toggle-row { width:100%; border-bottom:1px solid var(--border); }
+.settings-page .notice,.settings-page .acceptance-note,.settings-page .recovery-warning,.settings-page .recovery-confirm { font-size:var(--settings-caption); line-height:1.8; border-radius:8px; }
+.settings-page .vault-history-copy strong { font-size:var(--settings-body); font-weight:500; }
+.settings-page .vault-history-copy small,.settings-page .vault-history-copy .subtle { font-size:var(--settings-caption); }
+.settings-page .about-description { font-size:var(--settings-body); }
+.settings-page .about-details { font-size:var(--settings-body); max-width:880px; }
+.settings-page .about-brand h2 { font-size:24px; }
+.settings-page .mcp-page-header p { margin-bottom:0; }
+@media(max-width:760px) { .settings-card,.settings-page .semantic-settings,.settings-page .auto-sync-settings,.settings-page .clone-section,.settings-page .vault-history { padding:18px; } }
+
+.settings-page .settings-toggle-row { font-size:var(--settings-body); }
+.settings-page strong { font-weight:500; }

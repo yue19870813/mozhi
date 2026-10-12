@@ -1,3 +1,4 @@
+import { SettingsSwitch } from './SettingsSwitch';
 import thirdPartyNotices from '../src-tauri/licenses/ONNX-ThirdPartyNotices.txt?raw';
 import apacheLicense from '../src-tauri/licenses/Apache-2.0.txt?raw';
 import ortLicense from '../src-tauri/licenses/ONNX-Runtime.txt?raw';
@@ -19,7 +20,7 @@ export function SemanticSettings(){
  <div className="semantic-model-card"><strong>Multilingual MiniLM · INT8</strong><span>{t('支持中文、英文、日文 · CPU 推理 · 首次下载约 129 MiB')}</span><span>{status?.modelReady?t('模型已下载'):t('模型未下载')}</span></div>
  <label className="semantic-source">{t('模型下载源')}<select disabled={!!busy||!native} value={mirror?'mirror':'official'} onChange={e=>setMirror(e.target.value==='mirror')}><option value="official">Hugging Face</option><option value="mirror">hf-mirror.com</option></select></label>
  <div className="workspace-toolbar"><button disabled={!!busy||!native} onClick={()=>void run({action:'download',mirror})}><Download size={14}/>{status?.modelReady?t('校验并修复模型'):t('下载本地模型')}</button></div>
- <label className="semantic-toggle"><input type="checkbox" checked={status?.enabled??false} disabled={!native||!status?.modelReady||(!!busy&&!status?.enabled)} onChange={e=>void run({action:'configure',enabled:e.target.checked})}/>{t('为当前笔记库启用语义检索')}</label>
+ <label className="semantic-toggle settings-toggle-row"><span>{t('为当前笔记库启用语义检索')}</span><SettingsSwitch label={t('为当前笔记库启用语义检索')} checked={status?.enabled??false} disabled={!native||!status?.modelReady||(!!busy&&!status?.enabled)} onChange={e=>void run({action:'configure',enabled:e.target.checked})}/></label>
  <p className="subtle">{t('索引仅保存在本机，不进入 Git。启用后后台检查新增、修改、删除及同步后的笔记。')}</p>
  {status&&<div className="semantic-stats"><span>{t('已索引笔记')} <strong>{status.stats.notes}</strong></span><span>{t('正文片段')} <strong>{status.stats.chunks}</strong></span><span>{t('待更新笔记')} <strong>{status.pending}</strong></span></div>}
  <div className="workspace-toolbar"><button disabled={!native||!status?.modelReady||!!busy} onClick={()=>void run({action:'index',rebuild:false})}>{t('更新索引')}</button><button disabled={!native||!status?.modelReady||!!busy} onClick={()=>void run({action:'index',rebuild:true})}>{t('重新建立索引')}</button>{busy&&<button onClick={()=>void semanticRequest({action:'cancel'}).then(refresh).catch(e=>setMessage(errorText(e)))}>{t('停止')}</button>}</div>
