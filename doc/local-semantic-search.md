@@ -24,6 +24,7 @@
 - 相似度检索使用本地精确余弦扫描，适合个人笔记库；大型索引后续可迁移 ANN，而不改变接口。
 - 后台更新有最多一个扫描周期的延迟；新索引建立前仍能关键词问答。实际中英日召回质量须使用用户选定的非敏感样本进一步评估。
 - CPU 推理使安装包增加 ONNX 运行库体积；不同平台 Release CI 必须完成链接、签名与安装后的离线加载验收。
+- ONNX Runtime 1.28 / ort-sys rc.13 没有 Intel macOS 预编译包。Intel Release 使用 `scripts/macos/build-onnx-intel.sh` 从固定上游提交构建同版本 CPU 动态库，通过 `ORT_LIB_PATH` 链接并打包到应用 `Contents/Frameworks`；不需要用户另装运行库。CI 检查 x86_64 架构、签名、主程序链接及移除构建库搜索路径后的运行库加载。首次 Intel CI 源码构建时间会明显增加，实际通过情况以 Intel CI 为准。ARM64 和 Windows 保持预编译运行库方式。
 
 ## 许可
 

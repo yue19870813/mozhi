@@ -80,6 +80,13 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           key: release-${{ matrix.name }}
+      - uses: actions/setup-python@v5
+        if: matrix.name == 'macos-x64'
+        with:
+          python-version: '3.12'
+      - name: Build Intel macOS ONNX Runtime
+        if: matrix.name == 'macos-x64'
+        run: bash scripts/macos/build-onnx-intel.sh
       - run: npm ci
       - run: npm run build
       - run: npm test
@@ -87,7 +94,33 @@ jobs:
       - run: cargo test --workspace --locked
       - run: cargo clippy --workspace --all-targets --locked -- -D warnings
       - name: Build installer
+        if: matrix.name != 'macos-x64'
         run: npm run tauri -- build --ci --verbose --bundles ${{ matrix.bundle }} -- --locked
+      - name: Build Intel macOS app with bundled ONNX Runtime
+        if: matrix.name == 'macos-x64'
+        run: npm run tauri -- build --ci --verbose --bundles app --config "$MOZHI_INTEL_TAURI_CONFIG" -- --locked
+      - name: Verify Intel runtime packaging
+        if: matrix.name == 'macos-x64'
+        run: |
+          app_path=(target/release/bundle/macos/*.app)
+          runtime="${app_path[0]}/Contents/Frameworks/libonnxruntime.dylib"
+          test -f "$runtime"
+          lipo -verify_arch x86_64 "$runtime"
+          codesign --verify --strict "$runtime"
+          executable=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "${app_path[0]}/Contents/Info.plist")
+          otool -L "${app_path[0]}/Contents/MacOS/$executable" | grep '@rpath/libonnxruntime.dylib'
+          env -u DYLD_LIBRARY_PATH python3 - "$runtime" <<'PY'
+          import ctypes, sys
+          runtime = ctypes.CDLL(sys.argv[1])
+          runtime.OrtGetApiBase.restype = ctypes.c_void_p
+          class ApiBase(ctypes.Structure):
+              _fields_ = [('get_api', ctypes.CFUNCTYPE(ctypes.c_void_p, ctypes.c_uint)),
+                          ('get_version', ctypes.CFUNCTYPE(ctypes.c_char_p))]
+          api = ctypes.cast(runtime.OrtGetApiBase(), ctypes.POINTER(ApiBase)).contents
+          assert api.get_api(28), 'Bundled runtime does not support ONNX API 28'
+          assert api.get_version().decode().startswith('1.28.'), 'Unexpected runtime version'
+          print('Bundled Intel runtime loaded without build-library search paths')
+          PY
       - name: Create macOS disk image without Finder automation
         if: runner.os == 'macOS'
         env:
