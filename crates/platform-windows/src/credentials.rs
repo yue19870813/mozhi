@@ -201,74 +201,6 @@ fn secret_from_utf16(input: &[u16]) -> ApiResult<PromptSecret> {
     }
     Ok(PromptSecret(bytes))
 }
-#[cfg(test)]
-mod tests {
-    use super::*;
-    #[test]
-    fn native_credential_roundtrip_and_account_isolation() {
-        let stamp = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
-            .as_nanos();
-        let config = Config {
-            url: format!("https://credentials-test.invalid/{stamp}"),
-            username: "墨知测试".into(),
-        };
-        let name = wide(&target(&config));
-        struct Cleanup(Vec<u16>);
-        impl Drop for Cleanup {
-            fn drop(&mut self) {
-                unsafe {
-                    CredDeleteW(self.0.as_ptr(), CRED_TYPE_GENERIC, 0);
-                }
-            }
-        }
-        let _cleanup = Cleanup(name);
-        store(&config, b"synthetic-test-token").unwrap();
-        assert_eq!(get(&config).unwrap(), "synthetic-test-token");
-        let other = Config {
-            username: "other".into(),
-            ..config.clone()
-        };
-        assert!(get(&other).is_err());
-        assert!(!target(&config).contains("墨知测试"));
-    }
-    #[test]
-    fn passphrase_conversion_and_raii_cleanup() {
-        let input = Secret("synthetic 密码".encode_utf16().collect::<Vec<_>>());
-        let secret = secret_from_utf16(&input.0).unwrap();
-        assert_eq!(secret.as_bytes(), "synthetic 密码".as_bytes());
-        assert!(secret_from_utf16(&[0xd800]).is_err());
-        let mut bytes = *b"secret";
-        wipe(&mut bytes);
-        assert_eq!(bytes, [0; 6]);
-
-        // Observe Drop's overwrite calls without inspecting deallocated memory.
-        static CLEARED: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
-        #[derive(Clone, Copy)]
-        struct Probe;
-        impl Default for Probe {
-            fn default() -> Self {
-                CLEARED.fetch_add(1, Ordering::SeqCst);
-                Self
-            }
-        }
-        let result = std::panic::catch_unwind(|| {
-            let _owned = Secret(vec![Probe; 8]);
-            panic!("synthetic cleanup test");
-        });
-        assert!(result.is_err());
-        assert_eq!(CLEARED.load(Ordering::SeqCst), 8);
-    }
-
-    #[test]
-    fn password_buffer_is_cleared() {
-        let mut buffer = [1u16, 2, 3];
-        wipe(&mut buffer);
-        assert_eq!(buffer, [0, 0, 0]);
-    }
-}
-
 /// Explicit native-only display. The value never crosses WebView IPC.
 pub fn show_local_secret(secret: &str, question: &str) -> ApiResult<()> {
     use windows_sys::Win32::{
@@ -339,4 +271,72 @@ pub fn ensure_local(config: &Config, generate: impl FnOnce() -> String) -> ApiRe
         return Err(failure("无法访问 Windows 凭据管理器"));
     }
     store(config, generate().as_bytes())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn native_credential_roundtrip_and_account_isolation() {
+        let stamp = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let config = Config {
+            url: format!("https://credentials-test.invalid/{stamp}"),
+            username: "墨知测试".into(),
+        };
+        let name = wide(&target(&config));
+        struct Cleanup(Vec<u16>);
+        impl Drop for Cleanup {
+            fn drop(&mut self) {
+                unsafe {
+                    CredDeleteW(self.0.as_ptr(), CRED_TYPE_GENERIC, 0);
+                }
+            }
+        }
+        let _cleanup = Cleanup(name);
+        store(&config, b"synthetic-test-token").unwrap();
+        assert_eq!(get(&config).unwrap(), "synthetic-test-token");
+        let other = Config {
+            username: "other".into(),
+            ..config.clone()
+        };
+        assert!(get(&other).is_err());
+        assert!(!target(&config).contains("墨知测试"));
+    }
+    #[test]
+    fn passphrase_conversion_and_raii_cleanup() {
+        let input = Secret("synthetic 密码".encode_utf16().collect::<Vec<_>>());
+        let secret = secret_from_utf16(&input.0).unwrap();
+        assert_eq!(secret.as_bytes(), "synthetic 密码".as_bytes());
+        assert!(secret_from_utf16(&[0xd800]).is_err());
+        let mut bytes = *b"secret";
+        wipe(&mut bytes);
+        assert_eq!(bytes, [0; 6]);
+
+        // Observe Drop's overwrite calls without inspecting deallocated memory.
+        static CLEARED: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+        #[derive(Clone, Copy)]
+        struct Probe;
+        impl Default for Probe {
+            fn default() -> Self {
+                CLEARED.fetch_add(1, Ordering::SeqCst);
+                Self
+            }
+        }
+        let result = std::panic::catch_unwind(|| {
+            let _owned = Secret(vec![Probe; 8]);
+            panic!("synthetic cleanup test");
+        });
+        assert!(result.is_err());
+        assert_eq!(CLEARED.load(Ordering::SeqCst), 8);
+    }
+
+    #[test]
+    fn password_buffer_is_cleared() {
+        let mut buffer = [1u16, 2, 3];
+        wipe(&mut buffer);
+        assert_eq!(buffer, [0, 0, 0]);
+    }
 }
