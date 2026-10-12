@@ -127,8 +127,25 @@ impl Vault {
         let key = hash(format!("{}:{relative}", self.root.display()).as_bytes());
         atomic_write(&self.recovery.join(format!("{key}.md")), content.as_bytes())
     }
+    /// Read a recovery draft for an as-yet uncreated note, retaining path checks.
+    pub fn read_creation_draft(&self, relative: &str) -> Result<Option<String>> {
+        let path = crate::operations::checked(&self.root, relative, false)?;
+        if path
+            .extension()
+            .and_then(|s| s.to_str())
+            .map(str::to_ascii_lowercase)
+            .as_deref()
+            != Some("md")
+        {
+            return Err(Error::InvalidPath);
+        }
+        self.draft_content(relative)
+    }
     pub fn read_draft(&self, relative: &str) -> Result<Option<String>> {
         self.resolve(relative)?;
+        self.draft_content(relative)
+    }
+    fn draft_content(&self, relative: &str) -> Result<Option<String>> {
         let key = hash(format!("{}:{relative}", self.root.display()).as_bytes());
         match fs::read_to_string(self.recovery.join(format!("{key}.md"))) {
             Ok(content) => Ok(Some(content)),

@@ -1,16 +1,19 @@
+use crate::ai_service::completion;
+#[cfg(test)]
+use crate::ai_service::completion_with_timeout;
 use crate::{ai_credentials, blocking, failure, with_active, workspace, ApiResult, AppState};
-use futures_util::StreamExt;
 use mozhi_core::{
     ai::{self, Config, Source},
     vault,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
+#[cfg(test)]
+use std::time::Duration;
 use std::{
     collections::HashMap,
     fs,
     sync::{Arc, Mutex},
-    time::Duration,
 };
 use tauri::{Emitter, Manager, State};
 use tokio::sync::watch;
@@ -130,7 +133,7 @@ fn config_path(app: &tauri::AppHandle) -> ApiResult<std::path::PathBuf> {
         .map_err(|_| failure("无法读取应用配置"))?
         .join("ai-config.json"))
 }
-fn config(app: &tauri::AppHandle) -> ApiResult<Config> {
+pub(crate) fn config(app: &tauri::AppHandle) -> ApiResult<Config> {
     let bytes = fs::read(config_path(app)?).map_err(|_| failure("请先配置 AI 模型"))?;
     let config: Config =
         serde_json::from_slice(&bytes).map_err(|_| failure("AI 配置损坏，请重新保存"))?;
@@ -146,14 +149,14 @@ fn history_key(vault_id: &str, config: &Config, mode: &str) -> ApiResult<String>
         mode
     ))
 }
-fn token(config: &Config) -> ApiResult<String> {
+pub(crate) fn token(config: &Config) -> ApiResult<String> {
     match ai_credentials::get(config) {
         Ok(key) => Ok(key),
         Err(_) if config.local() => Ok(String::new()),
         Err(error) => Err(error),
     }
 }
-fn revision(app: &tauri::AppHandle) -> String {
+pub(crate) fn revision(app: &tauri::AppHandle) -> String {
     config_path(app)
         .ok()
         .and_then(|p| fs::read(p).ok())
@@ -173,129 +176,18 @@ fn authorization_matches(value: &Value, config: &Config, revision: &str) -> bool
         && value.get("revision").and_then(Value::as_str) == Some(revision)
 }
 
-async fn completion(
-    config: &Config,
-    key: &str,
-    messages: Vec<Value>,
-    cancelled: watch::Receiver<bool>,
-    emit: impl FnMut(&str),
-) -> ApiResult<String> {
-    completion_with_timeout(
-        config,
-        key,
-        messages,
-        cancelled,
-        emit,
-        Duration::from_secs(120),
-    )
-    .await
-}
-async fn completion_with_timeout(
-    config: &Config,
-    key: &str,
-    messages: Vec<Value>,
-    mut cancelled: watch::Receiver<bool>,
-    mut emit: impl FnMut(&str),
-    timeout: Duration,
-) -> ApiResult<String> {
-    let client = reqwest::Client::builder()
-        .redirect(reqwest::redirect::Policy::none())
-        .connect_timeout(Duration::from_secs(10))
-        .timeout(timeout)
-        .build()
-        .map_err(|_| failure("无法初始化模型连接"))?;
-    let mut request = client
-        .post(config.validate()?.as_str())
-        .json(&json!({"model":config.model,"messages":messages,"stream":true}));
-    if !key.is_empty() {
-        request = request.bearer_auth(key);
-    }
-    let work = async {
-        let response = request
-            .send()
-            .await
-            .map_err(|_| failure("模型连接失败，请检查地址与网络"))?;
-        let status = response.status();
-        if !status.is_success() {
-            return Err(failure(match status.as_u16() {
-                401 | 403 => "模型认证失败，请检查 API Key 与权限",
-                429 => "模型服务限流，请稍后手动重试",
-                300..=399 => "模型地址返回重定向，请配置最终服务地址",
-                _ => "模型服务返回错误",
-            }));
-        }
-        let mut stream = response.bytes_stream();
-        let mut parser = ai::SseParser::default();
-        let mut result = String::new();
-        let mut received = 0;
-        let mut finished = false;
-        while let Some(chunk) = stream.next().await {
-            let chunk = chunk.map_err(|_| failure("模型响应中断"))?;
-            received += chunk.len();
-            if received > 2 * 1024 * 1024 {
-                return Err(failure("模型响应超过大小限制"));
-            }
-            for data in parser.feed(&chunk)? {
-                if data == "[DONE]" {
-                    if result.is_empty() {
-                        return Err(failure("模型返回空内容"));
-                    }
-                    return Ok(result);
-                }
-                let value: Value =
-                    serde_json::from_str(&data).map_err(|_| failure("模型流式响应格式无效"))?;
-                if value.get("error").is_some() {
-                    return Err(failure("模型服务返回错误"));
-                }
-                if value
-                    .pointer("/choices/0/finish_reason")
-                    .and_then(Value::as_str)
-                    .is_some_and(|reason| reason != "stop")
-                {
-                    return Err(failure("模型响应未完成，请手动重试"));
-                }
-                if value
-                    .pointer("/choices/0/finish_reason")
-                    .is_some_and(|reason| reason == "stop")
-                {
-                    finished = true;
-                }
-                if let Some(text) = value
-                    .pointer("/choices/0/delta/content")
-                    .and_then(Value::as_str)
-                {
-                    result.push_str(text);
-                    if result.len() > 1024 * 1024 {
-                        return Err(failure("生成内容超过大小限制"));
-                    }
-                    emit(text);
-                }
-            }
-        }
-        if result.is_empty() {
-            Err(failure("模型未返回兼容的流式内容"))
-        } else if finished {
-            Ok(result)
-        } else {
-            Err(failure("模型响应未完成，请手动重试"))
-        }
-    };
-    tokio::select! {
-        _=cancelled.changed()=>Err(failure("已停止生成")),
-        _=tokio::time::sleep(timeout)=>Err(failure("模型请求超时，请手动重试")),
-        result=work=>result,
-    }
-}
-
 #[tauri::command]
 pub async fn ai_key(app: tauri::AppHandle) -> ApiResult<bool> {
     let config = config(&app)?;
+    app.state::<AiState>().cancel_all();
+    app.state::<crate::mcp::McpState>().revoke_model(&app)?;
     let (send, receive) = std::sync::mpsc::channel();
     app.run_on_main_thread(move || {
         let _ = send.send(ai_credentials::prompt(&config));
     })
     .map_err(|_| failure("无法打开原生凭据窗口"))?;
-    blocking(move || receive.recv().map_err(|_| failure("凭据输入未完成"))?).await
+    let saved = blocking(move || receive.recv().map_err(|_| failure("凭据输入未完成"))?).await?;
+    Ok(saved)
 }
 
 #[tauri::command]
@@ -415,12 +307,15 @@ pub async fn ai_request(
                     .map_err(|_| failure("无法创建 AI 配置"))?;
                 let old=self::config(&app).ok();
                 let old_revision=revision(&app);
-                let revision=if !old_revision.is_empty()&&old.as_ref().is_some_and(|c|c.service().ok()==config.service().ok()){old_revision}else{std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_nanos().to_string()};
+                let revision=if !old_revision.is_empty()&&old.as_ref()==Some(&config){old_revision}else{std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_nanos().to_string()};
                 runtime.cancel_all();
+                if old.as_ref()!=Some(&config) {app.state::<crate::mcp::McpState>().revoke_model(&app)?;}
                 vault::atomic_write(&path, &serde_json::to_vec(&json!({"baseUrl":config.base_url,"model":config.model,"revision":revision})).unwrap())?;
                 Ok(json!(true))
             }
             Request::DeleteKey => {
+                runtime.cancel_all();
+                app.state::<crate::mcp::McpState>().revoke_model(&app)?;
                 ai_credentials::delete(&config(&app)?)?;
                 Ok(json!(true))
             }
@@ -466,26 +361,12 @@ pub async fn ai_request(
                             return Err(failure("请求内容过多"));
                         }
                         let config = config(&app)?;
-                        let mut selected = paths;
-                        if mode == "ask" {
-                            let query = if keywords.trim().is_empty() {
-                                &question
-                            } else {
-                                &keywords
-                            };
-                            selected.extend(
-                                active
-                                    .index
-                                    .query(query, "")?
-                                    .hits
-                                    .into_iter()
-                                    .take(10)
-                                    .map(|h| h.path),
-                            );
-                        }
                         let sources = if mode == "optimize" {
-                            ai::optimization_context(&active.vault, &selected, &question)?
-                        } else { ai::merge_context(ai::context(&active.vault, &selected)?, semantic_sources) };
+                            ai::optimization_context(&active.vault, &paths, &question)?
+                        } else if mode == "ask" {
+                            let query=if keywords.trim().is_empty(){&question}else{&keywords};
+                            ai::query_context(&active.vault,&active.index,query,paths,semantic_sources)?
+                        } else {ai::context(&active.vault,&paths)?};
                         if mode != "generate" && sources.is_empty() {
                             return Err(failure("未找到参考笔记，请调整关键词或手动选择笔记"));
                         }
@@ -531,6 +412,96 @@ pub async fn ai_request(
         }})
         .await
     }
+}
+
+/// Independent one-shot MCP request, sharing the per-vault generation slot.
+pub(crate) async fn mcp_answer(
+    app: tauri::AppHandle,
+    state: AppState,
+    id: String,
+    question: String,
+    epoch: tokio_util::sync::CancellationToken,
+    client_cancel: tokio_util::sync::CancellationToken,
+) -> ApiResult<Value> {
+    if epoch.is_cancelled() || client_cancel.is_cancelled() {
+        return Err(failure("已停止生成"));
+    }
+    let handle = app.clone();
+    let state_copy = state.clone();
+    let vault_id = id.clone();
+    let prepared = blocking(move || {
+        let config = config(&handle).map_err(|_| crate::ApiError {
+            code: "MODEL_CONFIG",
+            message: "请先配置 AI 模型".into(),
+        })?;
+        let semantic = crate::semantic::retrieve(&handle, &state_copy, &vault_id, &question)?;
+        crate::with_access(&state_copy, true, |a| {
+            workspace::identity(a, &vault_id)?;
+            let sources = ai::query_context(&a.vault, &a.index, &question, vec![], semantic)?;
+            if sources.is_empty() {
+                return Err(failure("未找到参考笔记，请调整关键词或手动选择笔记"));
+            }
+            ai::validate_sources(&a.vault, &sources)?;
+            Ok(Prepared {
+                id: uuid::Uuid::new_v4().to_string(),
+                vault_id,
+                config,
+                mode: "ask".into(),
+                question,
+                sources,
+                authorized: true,
+                history: vec![],
+                revision: revision(&handle),
+            })
+        })
+    })
+    .await?;
+    let runtime = app.state::<AiState>().inner().clone();
+    let (cancel, receiver) = watch::channel(false);
+    crate::with_access(&state, true, |active| {
+        if epoch.is_cancelled() || client_cancel.is_cancelled() {
+            return Err(failure("已停止生成"));
+        }
+        workspace::identity(active, &id)?;
+        if config(&app)? != prepared.config || revision(&app) != prepared.revision {
+            return Err(failure("模型配置已更改，请重新准备"));
+        }
+        ai::validate_sources(&active.vault, &prepared.sources)?;
+        let mut r = runtime.0.lock().map_err(|_| failure("AI 状态不可用"))?;
+        if r.running.values().any(|(v, _)| v == &id) {
+            return Err(failure("请先停止当前生成"));
+        }
+        r.running.insert(prepared.id.clone(), (id, cancel));
+        Ok(())
+    })?;
+    struct Slot(AiState, String);
+    impl Drop for Slot {
+        fn drop(&mut self) {
+            if let Ok(mut r) = self.0 .0.lock() {
+                r.running.remove(&self.1);
+            }
+        }
+    }
+    let _slot = Slot(runtime, prepared.id.clone());
+    let token_config = prepared.config.clone();
+    let key = blocking(move || token(&token_config))
+        .await
+        .map_err(|_| crate::ApiError {
+            code: "MODEL_CREDENTIALS",
+            message: "请检查模型凭据".into(),
+        })?;
+    if epoch.is_cancelled() || client_cancel.is_cancelled() {
+        return Err(failure("已停止生成"));
+    }
+    let answer = completion(
+        &prepared.config,
+        &key,
+        request_messages(&prepared)?,
+        receiver,
+        |_| {},
+    )
+    .await?;
+    Ok(json!({"answer":answer,"sources":prepared.sources}))
 }
 
 #[cfg(test)]

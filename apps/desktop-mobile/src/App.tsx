@@ -20,6 +20,7 @@ import { AppShell, Icon, useSidebar } from './AppShell';
 import { HomePage } from './HomePage';
 import { GettingStarted } from './GettingStarted';
 import { AiAssistant, emptyAiSession, type AiSession } from './AiAssistant';
+import { McpSettings } from './McpSettings';
 import { AiSettings } from './AiSettings';
 import { AutoSyncSchedule, defaultAutoSync, readAutoSync, writeAutoSync, type AutoSyncSettings } from './auto-sync';
 import { GraphFilters, initialGraphFilters } from './GraphFilters';
@@ -171,6 +172,7 @@ export default function App(){
     if(!native)return;let disposed=false;const stops:(()=>void)[]=[];
     const keep=(stop:()=>void)=>{if(disposed)stop();else stops.push(stop);};
     getCurrentWindow().onCloseRequested(async event=>{event.preventDefault();if(syncingRef.current||operation.current||isComposing.current){setError(t("请等待同步、当前操作或中文组合输入结束后再关闭"));return;}try{await flush();await getCurrentWindow().destroy();}catch{setError(t("保存未完成，请先协调磁盘版本与恢复草稿"));}}).then(keep);
+    listen<{vaultId:string}>('mcp_note_created',event=>{if(event.payload.vaultId===vaultRef.current?.id){autoSchedule.current.savedAt=Date.now();void updateKnowledge().catch(e=>setError(errorText(e)));}}).then(keep);
     listen<{vaultId:string;phase:string}>('sync_state_changed',event=>{if(event.payload.vaultId===vaultRef.current?.id){const labels:Record<string,string>={committing:t("正在提交"),fetching:t("正在获取远程更新"),integrating:t("正在合并"),pushing:t("正在推送")};setStatus(labels[event.payload.phase]??event.payload.phase);}}).then(keep);
     return()=>{disposed=true;stops.forEach(stop=>stop());};
   },[flush]);
@@ -323,7 +325,7 @@ export default function App(){
     <div className="module-sidebar-page" hidden={module!=='graph'}><h2>{t("知识图谱")}</h2><GraphFilters value={graphFilters} onChange={setGraphFilters} current={path} tags={tags}/></div>
     <div className="module-sidebar-page" hidden={module!=='ai'}><h2>{t("AI 助理")}</h2><button className="nav-item" disabled={busy||composing} onClick={()=>void selectSettings('ai')}>{t("模型设置")}</button></div>
     <div className="module-sidebar-page" hidden={module!=='help'}><h2>{t("帮助")}</h2><nav aria-label={t("帮助导航")}>{([['intro',t("使用入门")],['shortcuts',t("快捷键")],['lab',t("技术验证")]] as const).map(([key,label])=><button className={`nav-item ${helpPage===key?'active':''}`} key={key} disabled={busy||composing} onClick={()=>void run(async()=>{setHelpPage(key);sidebar.dismiss();})}>{label}</button>)}</nav></div>
-    <div className="module-sidebar-page" hidden={module!=='settings'}><h2>{t("设置")}</h2><nav aria-label={t("设置导航")}>{([['appearance',t("外观")],['vault',t("笔记库")],['sync',t("同步")],['recovery',t("恢复记录")],['ai',t("AI 模型")],['about',t('关于')]] as const).map(([key,label])=><button className={`nav-item ${settingsPage===key?'active':''}`} key={key} disabled={busy||composing} onClick={()=>void selectSettings(key)}>{label}</button>)}</nav></div>
+    <div className="module-sidebar-page" hidden={module!=='settings'}><h2>{t("设置")}</h2><nav aria-label={t("设置导航")}>{([['appearance',t("外观")],['vault',t("笔记库")],['sync',t("同步")],['recovery',t("恢复记录")],['ai',t("AI 模型")],['mcp',t('MCP 服务')],['about',t('关于')]] as const).map(([key,label])=><button className={`nav-item ${settingsPage===key?'active':''}`} key={key} disabled={busy||composing} onClick={()=>void selectSettings(key)}>{label}</button>)}</nav></div>
     <div className="sidebar-bottom"><button disabled={!native||busy||composing||syncing} onClick={()=>void openVault()}>{t("打开笔记库")}</button></div>
   </>;
   return <AppShell active={module} disabled={busy||composing||!!modal||history!==null} onNavigate={next=>void switchModule(next)} sidebar={sidebarContent} sidebarVisible={sidebar.visible} dismissSidebar={sidebar.dismiss}>
@@ -382,6 +384,7 @@ export default function App(){
       })===true;
     }} onSave={async(next,body)=>{const saved=await run(async()=>{const result=await aiRequest<{indexWarning?:string}>(vault.id,{action:'save',path:next,body});autoSchedule.current.savedAt=Date.now();try{await reload();}catch{setError(t("笔记已保存，请重新打开笔记库刷新索引"));}if(result.indexWarning)setError(result.indexWarning);setStatus(t("已创建 {0}", next));return true;});return saved===true;}}/></div>}
     {module==='settings'&&settingsPage==='ai'&&<AiSettings/>}
+    {tab==='mcp'&&<McpSettings vaultId={vault?.id} vaultName={vault?.name}/>}
     {tab==='about'&&<AboutPage/>}
     <section className="settings-page" hidden={tab!=='appearance'}><h1>{t("外观")}</h1><p className="subtle">{t("选择适合你的阅读与书写环境。")}</p><div className="setting-row"><span>{t("主题")}</span><div className="segmented">{(['dark','light'] as const).map(value=><button key={value} aria-pressed={theme===value} className={theme===value?'selected':''} onClick={()=>setTheme(value)}>{value==='dark'?t("深色"):t("浅色")}</button>)}</div></div><LanguageSettings/></section>
     <section className="settings-page" hidden={tab!=='vault'}><h1>{t("笔记库")}</h1><p className="subtle">{t("当前笔记库：")}{vault?.name}</p><div className="workspace-toolbar"><button disabled={busy||composing||!native||syncing} onClick={()=>void openVault()}>{t("打开其他笔记库")}</button><button disabled={busy||composing||!native} onClick={()=>void run(async()=>{if(await workspace({action:'export'}))setStatus(t("笔记库已导出"));})}>{t("导出笔记库")}</button></div>{tab==='vault'&&<VaultSettings currentId={vault?.id} disabled={busy||composing||syncing} onOpen={openKnownVault}/>}</section>

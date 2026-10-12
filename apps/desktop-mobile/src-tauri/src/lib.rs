@@ -1,10 +1,13 @@
 mod about;
 mod ai;
 mod ai_credentials;
+mod ai_service;
 mod credentials;
 mod demo;
 mod file_manager;
 mod language;
+mod mcp;
+mod mcp_credentials;
 mod semantic;
 mod ssh_agent;
 mod vault_history;
@@ -51,6 +54,7 @@ impl From<Error> for ApiError {
             Error::Conflict => "CONTENT_CONFLICT",
             Error::InvalidPath => "INVALID_PATH",
             Error::TooLarge => "NOTE_TOO_LARGE",
+            Error::Io(e) if e.kind() == std::io::ErrorKind::NotFound => "NOT_FOUND",
             _ => "OPERATION_FAILED",
         };
         Self {
@@ -143,6 +147,7 @@ fn activate(app: &tauri::AppHandle, state: &AppState, root: PathBuf) -> ApiResul
         return Err(failure("请等待同步完成后切换笔记库"));
     }
     app.state::<ai::AiState>().cancel_all();
+    app.state::<mcp::McpState>().cancel_requests();
     app.state::<semantic::SemanticState>().cancel_vault();
     let root = root.canonicalize().map_err(failure)?;
     let demo = demo::is_demo(&app.path().app_data_dir().map_err(failure)?, &root);
@@ -392,10 +397,12 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .manage(AppState::default())
         .manage(ai::AiState::default())
+        .manage(mcp::McpState::default())
         .manage(semantic::SemanticState::default())
         .setup(|app| {
             about::install(app.handle())?;
             semantic::start(app.handle().clone());
+            mcp::restore(app.handle().clone());
             Ok(())
         })
         .on_menu_event(|app, event| {
@@ -406,6 +413,8 @@ pub fn run() {
             }
         })
         .invoke_handler(tauri::generate_handler![
+            mcp::mcp_request,
+            mcp::mcp_token,
             workspace::workspace,
             ai::ai_request,
             semantic::semantic_request,
@@ -426,6 +435,12 @@ pub fn run() {
             search_notes,
             run_probes
         ])
-        .run(tauri::generate_context!())
-        .expect("无法启动墨知");
+        .build(tauri::generate_context!())
+        .expect("无法启动墨知")
+        .run(|app, event| {
+            if matches!(event, tauri::RunEvent::Exit) {
+                app.state::<mcp::McpState>().shutdown();
+                app.state::<ai::AiState>().cancel_all();
+            }
+        });
 }

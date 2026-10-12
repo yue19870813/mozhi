@@ -71,7 +71,7 @@ pub fn get(config: &Config) -> ApiResult<String> {
         .map(str::to_owned)
         .map_err(|_| failure("Windows 凭据格式无效"))
 }
-fn store(config: &Config, bytes: &[u8]) -> ApiResult<()> {
+pub fn store(config: &Config, bytes: &[u8]) -> ApiResult<()> {
     if bytes.is_empty() || bytes.len() > 2560 {
         return Err(failure("Token 长度必须为 1–2560 字节"));
     }
@@ -267,4 +267,76 @@ mod tests {
         wipe(&mut buffer);
         assert_eq!(buffer, [0, 0, 0]);
     }
+}
+
+/// Explicit native-only display. The value never crosses WebView IPC.
+pub fn show_local_secret(secret: &str, question: &str) -> ApiResult<()> {
+    use windows_sys::Win32::{
+        Foundation::GlobalFree,
+        System::{DataExchange::*, Memory::*},
+        UI::{Input::KeyboardAndMouse::GetActiveWindow, WindowsAndMessaging::*},
+    };
+    let message = wide(&format!("MoZhi MCP token\n\n{secret}\n\n{question}"));
+    let title = wide("MoZhi MCP");
+    // SAFETY: native dialog runs on the UI thread; all UTF-16 strings are NUL-terminated.
+    let copy = unsafe {
+        MessageBoxW(
+            GetActiveWindow(),
+            message.as_ptr(),
+            title.as_ptr(),
+            MB_YESNO | MB_ICONINFORMATION,
+        )
+    };
+    if copy != IDYES {
+        return Ok(());
+    }
+    let text = Secret(wide(secret));
+    // SAFETY: allocate movable UTF-16 memory; transfer ownership only on successful SetClipboardData.
+    unsafe {
+        let owner = GetActiveWindow();
+        if owner.is_null() || OpenClipboard(owner) == 0 {
+            return Err(failure("无法复制 MCP 令牌"));
+        }
+        let result = (|| {
+            if EmptyClipboard() == 0 {
+                return Err(failure("无法复制 MCP 令牌"));
+            }
+            let memory = GlobalAlloc(GMEM_MOVEABLE, std::mem::size_of_val(text.0.as_slice()));
+            if memory.is_null() {
+                return Err(failure("无法复制 MCP 令牌"));
+            }
+            let data = GlobalLock(memory);
+            if data.is_null() {
+                GlobalFree(memory);
+                return Err(failure("无法复制 MCP 令牌"));
+            }
+            ptr::copy_nonoverlapping(text.0.as_ptr(), data.cast(), text.0.len());
+            GlobalUnlock(memory);
+            if SetClipboardData(13, memory).is_null() {
+                GlobalFree(memory);
+                return Err(failure("无法复制 MCP 令牌"));
+            }
+            Ok(())
+        })();
+        CloseClipboard();
+        result
+    }
+}
+
+/// Generate only for ERROR_NOT_FOUND; access failures never overwrite a secret.
+pub fn ensure_local(config: &Config, generate: impl FnOnce() -> String) -> ApiResult<()> {
+    let name = wide(&target(config));
+    let mut pointer = ptr::null_mut();
+    // SAFETY: NUL-terminated target and valid output pointer.
+    if unsafe { CredReadW(name.as_ptr(), CRED_TYPE_GENERIC, 0, &mut pointer) } != 0 {
+        let _owned = Credential(pointer);
+        return Ok(());
+    }
+    // SAFETY: read immediately after the failed Win32 call.
+    if unsafe { windows_sys::Win32::Foundation::GetLastError() }
+        != windows_sys::Win32::Foundation::ERROR_NOT_FOUND
+    {
+        return Err(failure("无法访问 Windows 凭据管理器"));
+    }
+    store(config, generate().as_bytes())
 }

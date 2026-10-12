@@ -125,7 +125,7 @@ fn ready(dir: &Path) -> bool {
         fs::metadata(dir.join(name)).is_ok_and(|m| m.is_file() && m.len() == *size)
     }) && dir.join("verified.json").is_file()
 }
-fn enabled(private: &Path) -> bool {
+pub(crate) fn enabled(private: &Path) -> bool {
     fs::read(private.join("semantic-enabled.json"))
         .ok()
         .and_then(|b| serde_json::from_slice::<bool>(&b).ok())

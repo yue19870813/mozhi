@@ -109,6 +109,24 @@ pub fn merge_context(mut lexical: Vec<Source>, semantic: Vec<Source>) -> Vec<Sou
     }
     output
 }
+/// Shared disk context preparation for desktop AI and external single-shot questions.
+pub fn query_context(
+    vault: &Vault,
+    index: &crate::search::SearchIndex,
+    query: &str,
+    mut selected: Vec<String>,
+    semantic: Vec<Source>,
+) -> Result<Vec<Source>> {
+    selected.extend(
+        index
+            .query(query, "")?
+            .hits
+            .into_iter()
+            .take(10)
+            .map(|hit| hit.path),
+    );
+    Ok(merge_context(context(vault, &selected)?, semantic))
+}
 pub fn validate_sources(vault: &Vault, sources: &[Source]) -> Result<()> {
     for source in sources {
         if vault.read(&source.path)?.content_hash != source.content_hash {
@@ -189,6 +207,15 @@ pub fn apply_optimization(
 }
 
 pub fn save_generated(vault: &Vault, path: &str, body: &str) -> Result<()> {
+    save_generated_with_tags(vault, path, body, &[])
+}
+
+pub fn save_generated_with_tags(
+    vault: &Vault,
+    path: &str,
+    body: &str,
+    tags: &[String],
+) -> Result<()> {
     if body.len() > 2 * 1024 * 1024 {
         return Err(Error::TooLarge);
     }
@@ -210,8 +237,9 @@ pub fn save_generated(vault: &Vault, path: &str, body: &str) -> Result<()> {
         body
     };
     let text = format!(
-        "---\nid: {}\ntags: []\n---\n\n{}\n",
+        "---\nid: {}\ntags: {}\n---\n\n{}\n",
         uuid::Uuid::new_v4(),
+        serde_json::to_string(tags).map_err(|_| crate::Error::Probe("标签无效".into()))?,
         body
     );
     if text.len() > 2 * 1024 * 1024 {
@@ -441,6 +469,57 @@ mod tests {
             assert!(save_generated(&vault, "linked/a.md", "escape").is_err());
             assert!(!private.path().join("a.md").exists());
         }
+    }
+    #[test]
+    fn generated_tags_are_escaped_and_model_metadata_cannot_replace_identity() {
+        let root = tempfile::tempdir().unwrap();
+        let private = tempfile::tempdir().unwrap();
+        let vault = Vault::open(root.path(), private.path()).unwrap();
+        let tags = vec!["学习".into(), "quoted\"\ntags: injected".into()];
+        save_generated_with_tags(
+            &vault,
+            "tagged.md",
+            "---\nid: injected\ntags: [bad]\n---\n# Actual body",
+            &tags,
+        )
+        .unwrap();
+        let text = vault.read("tagged.md").unwrap().content;
+        let parsed = crate::markdown::parse("tagged.md", &text);
+        let mut expected = tags;
+        expected.sort();
+        assert_eq!(parsed.tags, expected);
+        assert_ne!(parsed.id.as_deref(), Some("injected"));
+        assert!(text.contains("# Actual body"));
+    }
+    #[test]
+    fn shared_query_context_reads_only_matching_saved_notes_and_obeys_limits() {
+        let root = tempfile::tempdir().unwrap();
+        let private = tempfile::tempdir().unwrap();
+        let vault = Vault::open(root.path(), private.path()).unwrap();
+        let mut index = crate::search::SearchIndex::open(&private.path().join("index.db")).unwrap();
+        for number in 0..12 {
+            let path = format!("{number}.md");
+            let text = format!("# Synthetic topic\n{}", "正文".repeat(7000));
+            std::fs::write(root.path().join(&path), &text).unwrap();
+            index.upsert(&path, &text).unwrap();
+        }
+        std::fs::write(root.path().join("unrelated.md"), "private unrelated").unwrap();
+        let sources = query_context(&vault, &index, "Synthetic topic", vec![], vec![]).unwrap();
+        assert!(sources.len() <= 10);
+        assert!(
+            sources
+                .iter()
+                .map(|s| s.text.chars().count())
+                .sum::<usize>()
+                <= 24000
+        );
+        assert!(!sources.iter().any(|s| s.path == "unrelated.md"));
+        assert!(sources.iter().enumerate().all(|(n, s)| s.id == n + 1));
+        assert!(
+            query_context(&vault, &index, "unmatchedquery", vec![], vec![])
+                .unwrap()
+                .is_empty()
+        );
     }
     #[test]
     fn streaming_handles_split_unicode_crlf_and_done() {
