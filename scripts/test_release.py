@@ -3,7 +3,7 @@ import json
 import tempfile
 import unittest
 from pathlib import Path
-from release import ROOT, FILES, PLATFORMS, collect, replacements, validate
+from release import ROOT, FILES, PLATFORMS, collect, replacements, validate, workspace_manifests, workspace_package_names
 
 
 class ReleaseTests(unittest.TestCase):
@@ -22,7 +22,13 @@ class ReleaseTests(unittest.TestCase):
         old = (ROOT / 'Cargo.lock').read_text(encoding="utf-8").split('[[package]]')
         new = updates['Cargo.lock'].split('[[package]]')
         changed = [(a, b) for a, b in zip(old, new) if a != b]
-        self.assertEqual(len(changed), 3)
+        names = workspace_package_names(ROOT)
+        self.assertEqual(len(changed), len(names))
+        packages = updates['Cargo.lock'].split('[[package]]')[1:]
+        for name in names:
+            package = next(p for p in packages if f'name = "{name}"\n' in p and 'source = ' not in p)
+            self.assertIn('version = "0.9.1-beta.2"', package)
+        self.assertIn('mozhi-mcp', names)
         for a, b in changed:
             self.assertNotIn('source = ', b)
             self.assertIn('version = "0.9.1-beta.2"', b)
@@ -43,6 +49,10 @@ class ReleaseTests(unittest.TestCase):
                 path = root / name
                 path.parent.mkdir(parents=True, exist_ok=True)
                 path.write_text((ROOT / name).read_text(encoding="utf-8"), encoding="utf-8")
+            for manifest in workspace_manifests(ROOT):
+                path = root / manifest.relative_to(ROOT)
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text(manifest.read_text(encoding="utf-8"), encoding="utf-8")
             path = root / 'Cargo.lock'
             path.write_text(path.read_text(encoding="utf-8").replace('name = "mozhi-core"', 'name = "missing"'))
             before = (root / 'Cargo.toml').read_text(encoding="utf-8")

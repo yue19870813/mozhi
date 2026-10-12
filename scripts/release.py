@@ -25,6 +25,27 @@ def validate(version):
     return version
 
 
+def workspace_manifests(root):
+    cargo = (root / 'Cargo.toml').read_text(encoding="utf-8")
+    workspace = re.search(r'^\[workspace\]\s*\n(.*?)(?=^\[|\Z)', cargo, re.M | re.S)
+    members = re.search(r'^members\s*=\s*(\[[\s\S]*?\])', workspace[1], re.M)
+    for member in re.findall(r'"([^"]+)"', members[1]):
+        for directory in root.glob(member):
+            yield directory / 'Cargo.toml'
+
+
+def workspace_package_names(root):
+    names = set()
+    for manifest in workspace_manifests(root):
+        cargo = manifest.read_text(encoding="utf-8")
+        package = re.search(r'^\[package\]\s*\n(.*?)(?=^\[|\Z)', cargo, re.M | re.S)
+        if package and re.search(r'^version\.workspace\s*=\s*true\s*$', package[1], re.M):
+            names.add(re.search(r'^name\s*=\s*"([^"]+)"', package[1], re.M)[1])
+    if not names:
+        raise ValueError('Workspace packages missing')
+    return names
+
+
 def replacements(root, version):
     validate(version)
     updates = {}
@@ -33,7 +54,7 @@ def replacements(root, version):
     if count != 1:
         raise ValueError('Workspace version missing')
     updates['Cargo.toml'] = cargo
-    names = {'mozhi', 'mozhi-core', 'mozhi-windows'}
+    names = workspace_package_names(root)
     found = set()
     blocks = (root / 'Cargo.lock').read_text(encoding="utf-8").split('[[package]]')
     for i, block in enumerate(blocks[1:], 1):
