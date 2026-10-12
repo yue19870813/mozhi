@@ -5,6 +5,7 @@ mod credentials;
 mod demo;
 mod file_manager;
 mod language;
+mod semantic;
 mod ssh_agent;
 mod vault_history;
 mod watcher;
@@ -142,6 +143,7 @@ fn activate(app: &tauri::AppHandle, state: &AppState, root: PathBuf) -> ApiResul
         return Err(failure("请等待同步完成后切换笔记库"));
     }
     app.state::<ai::AiState>().cancel_all();
+    app.state::<semantic::SemanticState>().cancel_vault();
     let root = root.canonicalize().map_err(failure)?;
     let demo = demo::is_demo(&app.path().app_data_dir().map_err(failure)?, &root);
     let key = vault::hash(root.to_string_lossy().as_bytes());
@@ -390,8 +392,10 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .manage(AppState::default())
         .manage(ai::AiState::default())
+        .manage(semantic::SemanticState::default())
         .setup(|app| {
             about::install(app.handle())?;
+            semantic::start(app.handle().clone());
             Ok(())
         })
         .on_menu_event(|app, event| {
@@ -404,6 +408,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             workspace::workspace,
             ai::ai_request,
+            semantic::semantic_request,
             ai::ai_key,
             workspace::set_credentials,
             workspace::clone_vault,

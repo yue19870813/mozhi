@@ -59,3 +59,8 @@ export const api = {
   async probes(): Promise<unknown> { if (!native) throw new Error(t("请在桌面应用中运行 Rust 样本")); return invoke('run_probes'); },
 };
 export const errorText = (error: unknown): string => error instanceof Error ? error.message : typeof error === 'object' && error && 'message' in error ? String(error.message) : String(error);
+
+export async function semanticRequest<T>(request: Record<string, unknown>): Promise<T> {
+  if (!native) throw new Error(t("本地语义检索仅支持桌面应用。"));
+  return call("semantic_request", {request});
+}

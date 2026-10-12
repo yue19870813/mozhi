@@ -391,7 +391,11 @@ pub async fn ai_request(
         .await?;
         Ok(json!(true))
     } else {
-        blocking(move || match request {
+        blocking(move || {
+          let semantic_sources = if let Request::Prepare { mode, question, keywords, .. } = &request {
+            if mode == "ask" { crate::semantic::retrieve(&app, &state, &vault_id, if keywords.trim().is_empty() { question } else { keywords })? } else { Vec::new() }
+          } else { Vec::new() };
+          match request {
             Request::ApplyOptimization { path, expected_content_hash, body } =>
                 apply_optimization(&state, &vault_id, &path, &expected_content_hash, &body),
             Request::Config => {
@@ -479,7 +483,7 @@ pub async fn ai_request(
                         }
                         let sources = if mode == "optimize" {
                             ai::optimization_context(&active.vault, &selected, &question)?
-                        } else { ai::context(&active.vault, &selected)? };
+                        } else { ai::merge_context(ai::context(&active.vault, &selected)?, semantic_sources) };
                         if mode != "generate" && sources.is_empty() {
                             return Err(failure("未找到参考笔记，请调整关键词或手动选择笔记"));
                         }
@@ -522,7 +526,7 @@ pub async fn ai_request(
                     _ => Err(failure("AI 操作无效")),
                 }
             }),
-        })
+        }})
         .await
     }
 }
