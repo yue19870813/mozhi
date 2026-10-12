@@ -27,6 +27,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+      - uses: dtolnay/rust-toolchain@stable
       - name: Test release tools
         run: python -B -m unittest discover -s scripts -p test_release.py -v
       - name: Validate and prepare release commit
@@ -40,6 +41,7 @@ jobs:
           test "$REF_TYPE" = branch && test "$BRANCH" = "$DEFAULT_BRANCH"
           python scripts/release.py --version "$VERSION" --check
           python scripts/release.py --version "$VERSION"
+          cargo metadata --locked --format-version 1 > /dev/null
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
           git add Cargo.toml Cargo.lock package.json package-lock.json apps/desktop-mobile/package.json apps/desktop-mobile/src-tauri/tauri.conf.json
