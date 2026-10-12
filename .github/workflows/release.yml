@@ -87,6 +87,17 @@ jobs:
       - name: Build Intel macOS ONNX Runtime
         if: matrix.name == 'macos-x64'
         run: bash scripts/macos/build-onnx-intel.sh
+      - name: Preserve Intel ONNX build failure logs
+        if: failure() && matrix.name == 'macos-x64'
+        uses: actions/upload-artifact@v4
+        with:
+          name: onnx-build-logs-macos-x64
+          path: |
+            ${{ runner.temp }}/mozhi-onnx-intel/build.log
+            ${{ runner.temp }}/mozhi-onnx-intel/build/Release/CMakeCache.txt
+            ${{ runner.temp }}/mozhi-onnx-intel/build/Release/CMakeFiles/CMakeConfigureLog.yaml
+          if-no-files-found: warn
+          retention-days: 14
       - run: npm ci
       - run: npm run build
       - run: npm test

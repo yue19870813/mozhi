@@ -20,10 +20,14 @@ test "$(git -C "$source_dir" rev-parse HEAD)" = "$runtime_commit"
 python3 -m venv "$runtime_root/venv"
 "$runtime_root/venv/bin/python" -m pip install 'cmake==3.31.6' 'numpy==2.2.6' 'packaging==25.0'
 export PATH="$runtime_root/venv/bin:$PATH"
+# --skip_tests skips execution only. Disable test compilation as well: the
+# upstream GoogleTest formatting code requires macOS 13.3 with this SDK.
 "$runtime_root/venv/bin/python" "$source_dir/tools/ci_build/build.py" \
   --build_dir "$runtime_root/build" --config Release --update --build \
-  --build_shared_lib --skip_tests --parallel 3 \
-  --cmake_extra_defines CMAKE_OSX_ARCHITECTURES=x86_64 CMAKE_OSX_DEPLOYMENT_TARGET=10.15
+  --build_shared_lib --skip_tests --parallel 3 --targets onnxruntime \
+  --cmake_extra_defines CMAKE_OSX_ARCHITECTURES=x86_64 CMAKE_OSX_DEPLOYMENT_TARGET=10.15 \
+    onnxruntime_BUILD_UNIT_TESTS=OFF \
+  2>&1 | tee "$runtime_root/build.log"
 runtime_library="$runtime_root/build/Release/libonnxruntime.1.28.0.dylib"
 test -f "$runtime_library"
 cp "$runtime_library" "$library_dir/libonnxruntime.dylib"
