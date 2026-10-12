@@ -209,6 +209,7 @@ export const translations: Record<string, readonly [string, string]> = {
   'Keychain 中没有可用 Token，请先设置凭据': ['No token in Keychain. Set credentials first.', 'Keychain に Token がありません。先に資格情報を設定してください。'],
   'Keychain 凭据格式无效': ['Invalid Keychain credential format', 'Keychain の資格情報の形式が無効です'],
   'Token 不能为空': ['Token cannot be empty', 'Token は空にできません'],
+  '系统凭据访问受阻': ['System credential access blocked', 'システム資格情報へのアクセスが拒否されました'],
   '无法写入 Keychain': ['Could not write to Keychain', 'Keychain に書き込めませんでした'],
   '笔记库正在另一个窗口同步': ['Vault is syncing in another window', '別のウィンドウで保管庫を同期しています'],
   '笔记库已切换，请丢弃过期请求': ['Vault changed. Discard the outdated request.', '保管庫が変更されました。古いリクエストを破棄してください。'],

@@ -400,10 +400,12 @@ pub async fn ai_request(
                 apply_optimization(&state, &vault_id, &path, &expected_content_hash, &body),
             Request::Config => {
                 let value = config(&app).ok();
-                let has_key = value
-                    .as_ref()
-                    .is_some_and(|c| ai_credentials::get(c).is_ok());
-                Ok(json!({"config":value,"hasKey":has_key}))
+                let key = value.as_ref().map(ai_credentials::get);
+                let has_key = key.as_ref().is_some_and(|result| result.is_ok());
+                let key_error = key.and_then(Result::err)
+                    .filter(|error| error.message.contains("OSStatus"))
+                    .map(|error| error.message);
+                Ok(json!({"config":value,"hasKey":has_key,"keyError":key_error}))
             }
             Request::Configure { config } => {
                 config.validate()?;
