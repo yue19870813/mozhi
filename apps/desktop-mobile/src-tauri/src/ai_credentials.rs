@@ -9,7 +9,13 @@ fn account(config: &Config) -> String {
 #[cfg(target_os = "macos")]
 pub fn get(config: &Config) -> ApiResult<String> {
     let bytes = security_framework::passwords::get_generic_password(SERVICE, &account(config))
-        .map_err(|_| failure("请先设置模型 API Key"))?;
+        .map_err(|error| {
+            if error.code() == -25300 {
+                failure("请先设置模型 API Key")
+            } else {
+                crate::credentials::keychain_error(error.code())
+            }
+        })?;
     String::from_utf8(bytes).map_err(|_| failure("模型凭据格式无效"))
 }
 #[cfg(target_os = "macos")]
@@ -31,11 +37,11 @@ pub fn prompt(config: &Config) -> ApiResult<bool> {
 }
 #[cfg(target_os = "macos")]
 pub fn delete(config: &Config) -> ApiResult<()> {
-    if get(config).is_ok() {
-        security_framework::passwords::delete_generic_password(SERVICE, &account(config))
-            .map_err(|_| failure("无法删除模型凭据"))?;
+    match security_framework::passwords::delete_generic_password(SERVICE, &account(config)) {
+        Ok(()) => Ok(()),
+        Err(error) if error.code() == -25300 => Ok(()),
+        Err(error) => Err(crate::credentials::keychain_error(error.code())),
     }
-    Ok(())
 }
 #[cfg(windows)]
 fn windows_config(config: &Config) -> mozhi_windows::Config {

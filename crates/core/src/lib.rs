@@ -28,3 +28,5 @@ pub mod recovery;
 pub mod sync;
 
 pub mod paths;
+
+pub mod semantic;

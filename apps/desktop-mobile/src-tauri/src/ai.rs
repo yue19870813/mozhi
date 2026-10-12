@@ -391,15 +391,21 @@ pub async fn ai_request(
         .await?;
         Ok(json!(true))
     } else {
-        blocking(move || match request {
+        blocking(move || {
+          let semantic_sources = if let Request::Prepare { mode, question, keywords, .. } = &request {
+            if mode == "ask" { crate::semantic::retrieve(&app, &state, &vault_id, if keywords.trim().is_empty() { question } else { keywords })? } else { Vec::new() }
+          } else { Vec::new() };
+          match request {
             Request::ApplyOptimization { path, expected_content_hash, body } =>
                 apply_optimization(&state, &vault_id, &path, &expected_content_hash, &body),
             Request::Config => {
                 let value = config(&app).ok();
-                let has_key = value
-                    .as_ref()
-                    .is_some_and(|c| ai_credentials::get(c).is_ok());
-                Ok(json!({"config":value,"hasKey":has_key}))
+                let key = value.as_ref().map(ai_credentials::get);
+                let has_key = key.as_ref().is_some_and(|result| result.is_ok());
+                let key_error = key.and_then(Result::err)
+                    .filter(|error| error.message.contains("OSStatus"))
+                    .map(|error| error.message);
+                Ok(json!({"config":value,"hasKey":has_key,"keyError":key_error}))
             }
             Request::Configure { config } => {
                 config.validate()?;
@@ -479,7 +485,7 @@ pub async fn ai_request(
                         }
                         let sources = if mode == "optimize" {
                             ai::optimization_context(&active.vault, &selected, &question)?
-                        } else { ai::context(&active.vault, &selected)? };
+                        } else { ai::merge_context(ai::context(&active.vault, &selected)?, semantic_sources) };
                         if mode != "generate" && sources.is_empty() {
                             return Err(failure("未找到参考笔记，请调整关键词或手动选择笔记"));
                         }
@@ -522,7 +528,7 @@ pub async fn ai_request(
                     _ => Err(failure("AI 操作无效")),
                 }
             }),
-        })
+        }})
         .await
     }
 }

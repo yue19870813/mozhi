@@ -341,3 +341,19 @@ summary { cursor:pointer; }
   .ai-compare-switch button { font-size:12px; background:transparent; }
   .ai-compare-switch button[aria-pressed="true"] { background:var(--selected); color:var(--accent); }
 }
+
+.semantic-settings { margin-top:36px; border-top:1px solid var(--border); padding-top:24px; max-width:720px; }
+.semantic-settings h2 { display:flex; gap:9px; align-items:center; font-size:16px; }
+.semantic-settings p { font-size:12px; line-height:1.8; }
+.semantic-model-card { display:flex; flex-direction:column; gap:9px; padding:16px; border:1px solid var(--border); border-radius:8px; background:var(--panel); margin:16px 0; }
+.semantic-model-card span { font-size:12px; color:var(--muted); }
+.semantic-source,.semantic-toggle { display:flex; align-items:center; gap:12px; margin:16px 0; font-size:13px; }
+.semantic-source select { background:var(--panel); color:var(--text); border:1px solid var(--border); border-radius:6px; padding:7px; }
+.semantic-stats { display:flex; flex-wrap:wrap; gap:20px; font-size:12px; color:var(--muted); margin:20px 0; }
+.semantic-stats strong { color:var(--text); margin-left:6px; }
+.semantic-progress { display:flex; flex-wrap:wrap; gap:10px; align-items:center; font-size:12px; margin:16px 0; }
+.semantic-progress progress { width:160px; accent-color:var(--accent); }
+.semantic-settings .workspace-toolbar button { display:inline-flex; align-items:center; gap:6px; }
+
+.semantic-licenses { margin-top:20px; font-size:12px; color:var(--muted); }
+.semantic-licenses pre { max-height:240px; overflow:auto; white-space:pre-wrap; overflow-wrap:anywhere; font:11px/1.6 ui-monospace,monospace; }

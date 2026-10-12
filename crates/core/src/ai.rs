@@ -78,6 +78,37 @@ pub fn context(vault: &Vault, paths: &[String]) -> Result<Vec<Source>> {
     }
     Ok(sources)
 }
+/// Interleave lexical and semantic notes, prioritizing explicit/lexical candidates.
+pub fn merge_context(mut lexical: Vec<Source>, semantic: Vec<Source>) -> Vec<Source> {
+    for source in &mut lexical {
+        if let Some(hit) = semantic.iter().find(|hit| hit.path == source.path) {
+            *source = hit.clone();
+        }
+    }
+    let mut output: Vec<Source> = Vec::new();
+    let mut remaining = 24_000;
+    let mut candidates = Vec::new();
+    for i in 0..lexical.len().max(semantic.len()) {
+        if let Some(source) = lexical.get(i) {
+            candidates.push(source.clone());
+        }
+        if let Some(source) = semantic.get(i) {
+            candidates.push(source.clone());
+        }
+    }
+    for mut source in candidates {
+        if output.iter().any(|s| s.path == source.path) || output.len() == 10 || remaining == 0 {
+            continue;
+        }
+        let count = source.text.chars().count();
+        source.text = source.text.chars().take(remaining.min(6000)).collect();
+        source.truncated |= source.text.chars().count() < count;
+        remaining -= source.text.chars().count();
+        source.id = output.len() + 1;
+        output.push(source);
+    }
+    output
+}
 pub fn validate_sources(vault: &Vault, sources: &[Source]) -> Result<()> {
     for source in sources {
         if vault.read(&source.path)?.content_hash != source.content_hash {
@@ -237,6 +268,27 @@ impl SseParser {
 mod tests {
     use super::*;
     use std::fs;
+    #[test]
+    fn hybrid_context_keeps_relevant_ranges_and_enforces_limits() {
+        let source = |path: &str, text: String| Source {
+            id: 99,
+            path: path.into(),
+            text,
+            content_hash: "hash".into(),
+            truncated: false,
+        };
+        let lexical = vec![source("a.md", "irrelevant start".into())];
+        let semantic = (0..20)
+            .map(|i| source(if i == 0 { "a.md" } else { "b.md" }, "中".repeat(9000)))
+            .collect();
+        let result = merge_context(lexical, semantic);
+        assert_eq!(result.len(), 2);
+        assert_eq!(result[0].text.chars().count(), 6000);
+        assert_eq!(result[0].id, 1);
+        assert_eq!(result[1].id, 2);
+        assert!(result[0].truncated);
+        assert!(result.iter().map(|s| s.text.chars().count()).sum::<usize>() <= 24000);
+    }
     #[test]
     fn optimization_uses_full_body_and_rejects_limits_and_drafts() {
         let root = tempfile::tempdir().unwrap();

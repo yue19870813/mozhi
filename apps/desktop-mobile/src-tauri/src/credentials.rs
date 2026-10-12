@@ -6,6 +6,25 @@ use mozhi_core::vault::hash;
 #[cfg(target_os = "macos")]
 const SERVICE: &str = "app.mozhi.notes.git";
 #[cfg(target_os = "macos")]
+pub(crate) fn keychain_error(code: i32) -> crate::ApiError {
+    let message = match code {
+        -67050 | -67045 => crate::language::text(
+            "Keychain 拒绝当前应用签名。请退出并重新打开墨知；开发版重新编译后，可能需要在“钥匙串访问”中重新授权该凭据。",
+            "Keychain rejected the app signature. Quit and reopen MoZhi; rebuilt development apps may need credential access authorized again in Keychain Access.",
+            "Keychain がアプリの署名を拒否しました。MoZhi を終了して再起動してください。開発版の再ビルド後はキーチェーンアクセスで再認証が必要な場合があります。",
+        ),
+        -25293 | -25308 => crate::language::text(
+            "Keychain 访问被拒绝或钥匙串已锁定。请在“钥匙串访问”中解锁登录钥匙串，并允许墨知访问该凭据。",
+            "Keychain access was denied or locked. Unlock the login keychain in Keychain Access and allow MoZhi to access this credential.",
+            "Keychain へのアクセスが拒否されたか、ロックされています。キーチェーンアクセスでログインキーチェーンを解除し、MoZhi にアクセスを許可してください。",
+        ),
+        -128 => crate::language::text("已取消 Keychain 授权", "Keychain authorization cancelled", "Keychain の認証がキャンセルされました"),
+        _ => crate::language::text("无法访问 Keychain", "Could not access Keychain", "Keychain にアクセスできませんでした"),
+    };
+    // Only the OS status is exposed, never the secret or arbitrary native error text.
+    failure(format!("{message} (OSStatus {code})"))
+}
+#[cfg(target_os = "macos")]
 fn account(config: &Config) -> String {
     hash(format!("{}:{}", config.url, config.username).as_bytes())
 }
@@ -71,7 +90,7 @@ pub fn prompt_named(config: &Config, service: &str, title: &str) -> ApiResult<bo
         &account(config),
         token.as_bytes(),
     )
-    .map_err(|_| failure("无法写入 Keychain"))?;
+    .map_err(|error| keychain_error(error.code()))?;
     Ok(true)
 }
 #[cfg(not(any(target_os = "macos", windows)))]
@@ -106,4 +125,57 @@ pub fn prompt(config: &Config) -> ApiResult<bool> {
         &crate::language::credential_instructions(&config.url, &config.username),
     )
     .map_err(failure)
+}
+
+#[cfg(all(test, target_os = "macos"))]
+mod tests {
+    #[test]
+    fn keychain_errors_distinguish_signature_permissions_and_cancel() {
+        for code in [-67050, -67045, -25293, -25308, -128, -36] {
+            let error = super::keychain_error(code);
+            assert!(error.message.contains(&format!("OSStatus {code}")));
+        }
+        assert_ne!(
+            super::keychain_error(-67050).message,
+            super::keychain_error(-25293).message
+        );
+        assert_ne!(
+            super::keychain_error(-128).message,
+            super::keychain_error(-36).message
+        );
+    }
+
+    #[test]
+    #[ignore = "writes only a disposable synthetic credential to the login keychain"]
+    fn disposable_native_keychain_credential_can_be_created_updated_and_removed() {
+        let service = "app.mozhi.notes.test-keychain";
+        let account = format!(
+            "{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        );
+        let result = (|| {
+            security_framework::passwords::set_generic_password(
+                service,
+                &account,
+                b"synthetic-first",
+            )?;
+            security_framework::passwords::set_generic_password(
+                service,
+                &account,
+                b"synthetic-second",
+            )?;
+            let value = security_framework::passwords::get_generic_password(service, &account)?;
+            assert!(value == b"synthetic-second");
+            Ok::<(), security_framework::base::Error>(())
+        })();
+        let cleanup = security_framework::passwords::delete_generic_password(service, &account);
+        if let Err(error) = result {
+            panic!("Synthetic keychain test failed: OSStatus {}", error.code());
+        }
+        assert!(cleanup.is_ok());
+    }
 }
