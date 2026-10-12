@@ -118,7 +118,7 @@ jobs:
           app_path=(target/release/bundle/macos/*.app)
           runtime="${app_path[0]}/Contents/Frameworks/libonnxruntime.dylib"
           test -f "$runtime"
-          lipo -verify_arch x86_64 "$runtime"
+          lipo "$runtime" -verify_arch x86_64
           codesign --verify --strict "$runtime"
           executable=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "${app_path[0]}/Contents/Info.plist")
           otool -L "${app_path[0]}/Contents/MacOS/$executable" | grep '@rpath/libonnxruntime.dylib'

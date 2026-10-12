@@ -33,7 +33,7 @@ test -f "$runtime_library"
 cp "$runtime_library" "$library_dir/libonnxruntime.dylib"
 install_name_tool -id '@rpath/libonnxruntime.dylib' "$library_dir/libonnxruntime.dylib"
 codesign --force --sign - "$library_dir/libonnxruntime.dylib"
-lipo -verify_arch x86_64 "$library_dir/libonnxruntime.dylib"
+lipo "$library_dir/libonnxruntime.dylib" -verify_arch x86_64
 codesign --verify --strict "$library_dir/libonnxruntime.dylib"
 config_file="$runtime_root/tauri-onnx-intel.json"
 "$runtime_root/venv/bin/python" - "$library_dir" "$config_file" <<'PY'
