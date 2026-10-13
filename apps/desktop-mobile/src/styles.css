@@ -103,6 +103,9 @@ summary { cursor:pointer; }
 .note-heading-copy { flex:1 1 180px; min-width:0; }
 .note-heading h1 { font-size:17px; line-height:24px; letter-spacing:0; margin:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .note-heading-copy .subtle { font-size:11px; line-height:18px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.note-heading-copy .note-metrics { display:flex; flex-wrap:wrap; gap:0 8px; white-space:normal; }
+.note-metrics span + span::before { content:"·"; color:var(--muted); margin-right:8px; }
+.note-metrics .note-save-state { color:var(--accent); }
 .note-heading-controls { display:flex; align-items:center; flex-wrap:wrap; gap:8px 12px; min-width:0; }
 .note-heading-controls .sidebar-toggle { width:34px; height:34px; padding:6px; border-radius:6px; }
 .sidebar-toggle:hover { background:var(--selected); color:var(--text); }

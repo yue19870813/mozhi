@@ -393,6 +393,8 @@ export const translations: Record<string, readonly [string, string]> = {
   '一个想法，从这里开始': ['An idea starts here', 'ここからアイデアを'],
   '未设置标签': ['No tags', 'タグなし'],
   '字节 ·': ['bytes ·', 'バイト ·'],
+  '{0} 字': ['{0} words', '{0} 文字'],
+  '阅读约 {0} 分钟': ['{0} min read', '約 {0} 分で読めます'],
   '隐藏笔记侧栏': ['Hide note sidebar', 'ノートサイドバーを非表示'],
   '展开笔记侧栏': ['Show note sidebar', 'ノートサイドバーを表示'],
   '笔记视图': ['Note view', 'ノート表示'],
