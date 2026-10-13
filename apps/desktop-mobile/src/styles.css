@@ -440,7 +440,9 @@ summary { cursor:pointer; }
 .settings-page .semantic-settings,.settings-page .vault-history { max-width:880px; }
 .settings-page .settings-grid { margin-top:0; }
 .settings-page .setting-row { max-width:none; margin-top:0; padding:16px 0; font-size:var(--settings-body); }
-.settings-card .setting-row:last-child { border-bottom:0; }
+.settings-card .setting-row { padding:12px 0; }
+.settings-card .setting-row:first-child { padding-top:0; }
+.settings-card .setting-row:last-child { padding-bottom:0; border-bottom:0; }
 .settings-page label,.settings-page .mcp-field>span { font-size:var(--settings-caption); }
 .settings-page input:not([type=checkbox]),.settings-page select {
   height:38px; padding:8px 12px; border:1px solid var(--border); border-radius:8px;
