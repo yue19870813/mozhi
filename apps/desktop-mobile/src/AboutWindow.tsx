@@ -25,6 +25,8 @@ export function AboutWindow() {
     <p className="about-window-version">{t('应用版本')} {version}</p>
     <p className="about-window-summary">{t('本地优先的 Markdown 笔记应用')}</p>
     <p className="about-window-tagline">{t('让记录沉淀为相互连接的知识。')}</p>
+    <p className="about-window-studio">墨烛工作室</p>
+    <blockquote className="about-dedication">{t('献给我美丽的妻子和两个可爱的宝贝，谢谢你们让平凡的日子闪闪发光。')}</blockquote>
     <div className="about-window-license">{t('开源许可证')} · MIT</div>
   </main>;
 }

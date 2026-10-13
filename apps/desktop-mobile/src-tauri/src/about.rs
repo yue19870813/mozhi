@@ -56,7 +56,7 @@ pub fn open(app: &AppHandle) -> tauri::Result<()> {
         WebviewUrl::App("index.html?view=about".into()),
     )
     .title(title())
-    .inner_size(440., 480.)
+    .inner_size(440., 560.)
     .resizable(false)
     .maximizable(false)
     .minimizable(false)

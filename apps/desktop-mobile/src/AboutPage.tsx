@@ -25,9 +25,11 @@ export function AboutPage() {
     <header className="about-brand"><img src={brandLogo} alt=""/><div><h2>MoZhi<span>墨知</span></h2><p className="subtle">{t('本地优先的 Markdown 笔记应用')}</p></div></header>
     <div className="about-description"><p>{t('让记录沉淀为相互连接的知识。')}</p><p>{t('笔记以 Markdown 文件保存在本地，通过标签、双向链接和知识图谱连接思考，适合个人知识管理、学习记录与项目资料整理。')}</p><p>{t('可使用自己的 Git 仓库同步，并按需配置 AI 助理进行问答、总结与生成笔记。')}</p></div>
     <dl className="about-details">
+      <div><dt>{t('开发工作室')}</dt><dd>墨烛工作室</dd></div>
       <div><dt>{t('应用版本')}</dt><dd>{version}</dd></div>
       <div><dt>{t('运行环境')}</dt><dd>{native?t(platform.desktop):t('浏览器演示')}</dd></div>
       <div><dt>{t('开源许可证')}</dt><dd>MIT</dd></div>
     </dl>
+    <blockquote className="about-dedication">{t('献给我美丽的妻子和两个可爱的宝贝，谢谢你们让平凡的日子闪闪发光。')}</blockquote>
   </section>;
 }

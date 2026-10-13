@@ -220,6 +220,11 @@ summary { cursor:pointer; }
 .about-window-summary { font-size:14px; margin:0 0 10px; line-height:1.7; }
 .about-window-tagline { font-size:12px; color:var(--muted); margin:0; line-height:1.8; }
 .about-window-license { font-size:11px; color:var(--muted); margin:24px 0 0; }
+.about-dedication { max-width:680px; margin:24px 0 0; padding:14px 18px; border-left:3px solid var(--accent); border-radius:0 8px 8px 0; background:color-mix(in srgb,var(--accent) 6%,transparent); font-size:13px; font-weight:400; line-height:1.9; text-align:left; color:var(--muted); overflow-wrap:anywhere; }
+.about-window-studio { margin:16px 0 0; font-size:12px; line-height:1.7; color:var(--muted); }
+.about-window .about-dedication { max-width:320px; margin:18px auto 0; padding:0; border:0; border-radius:0; background:none; text-align:center; font-size:12px; line-height:1.9; text-wrap:balance; }
+.about-window .about-dedication::before { content:""; display:block; width:32px; height:1px; margin:0 auto 14px; background:var(--border); }
+.about-window .about-window-license { margin-top:18px; }
 .vault-history h2 { font-size:18px; margin:0 0 16px; }
 .vault-history-row { display:flex; align-items:center; gap:20px; padding:18px 0; border-top:1px solid var(--border); }
 .vault-history-copy { display:flex; flex-direction:column; gap:7px; flex:1; min-width:0; }

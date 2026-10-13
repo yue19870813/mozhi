@@ -139,6 +139,8 @@ export const translations: Record<string, readonly [string, string]> = {
   '从书写、链接到同步与 AI，了解墨知的使用方法。': ['Learn how to write, connect, sync, and use AI in MoZhi.', '書く、つなぐ、同期する、AI を使う。墨知の使い方をご紹介します。'],
   '语言': ['Language', '言語'],
   '关于': ['About', 'このアプリについて'],
+  '开发工作室': ['Developer', '開発スタジオ'],
+  '献给我美丽的妻子和两个可爱的宝贝，谢谢你们让平凡的日子闪闪发光。': ['Dedicated to my beautiful wife and my two lovely children. Thank you for making ordinary days shine.', '美しい妻と、愛しい二人の子どもたちへ。何気ない毎日を輝かせてくれて、ありがとう。'],
   '本地优先的 Markdown 笔记应用': ['A local-first Markdown notes app', 'ローカル優先の Markdown ノートアプリ'],
   '让记录沉淀为相互连接的知识。': ['Turn your notes into connected knowledge.', '記録を、つながる知識へ。'],
   '笔记以 Markdown 文件保存在本地，通过标签、双向链接和知识图谱连接思考，适合个人知识管理、学习记录与项目资料整理。': ['Keep notes locally as Markdown files and connect ideas through tags, bidirectional links, and a knowledge graph. For personal knowledge, learning, and project notes.', 'ノートを Markdown ファイルとしてローカルに保存し、タグ、双方向リンク、ナレッジグラフで思考をつなぎます。個人の知識管理、学習記録、プロジェクト資料の整理に。'],
