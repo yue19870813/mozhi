@@ -13,5 +13,8 @@
     "tauri": "npm run tauri -w @mozhi/app --",
     "check": "npm run build && npm test && cargo test -p mozhi-core",
     "probe": "cargo run --release -p mozhi-core --bin p0-probe --"
+  },
+  "devDependencies": {
+    "jsdom": "^26.1.0"
   }
 }

@@ -1,5 +1,16 @@
 // Source text remains the Simplified Chinese fallback. Note content is never translated.
 export const translations: Record<string, readonly [string, string]> = {
+  '查找': ['Find', '検索'],
+  '替换': ['Replace', '置換'],
+  '下一个': ['Next', '次へ'],
+  '上一个': ['Previous', '前へ'],
+  '选中全部': ['Select all', 'すべて選択'],
+  '区分大小写': ['Match case', '大文字・小文字を区別'],
+  '正则表达式': ['Regular expression', '正規表現'],
+  '全词匹配': ['Whole word', '単語単位'],
+  '全部替换': ['Replace all', 'すべて置換'],
+  '查找与替换': ['Find and replace', '検索と置換'],
+  '{0} 处匹配': ['{0} matches', '{0} 件一致'],
   '在默认浏览器中打开': ['Open in default browser', '既定のブラウザーで開く'],
   '无法打开网页链接，请检查默认浏览器设置。': ['Could not open the web link. Check your default browser settings.', 'リンクを開けませんでした。既定のブラウザーの設定を確認してください。'],
   "已授权": ["Authorized", "許可済み"],
