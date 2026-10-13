@@ -59,6 +59,7 @@ pub fn show() -> ApiResult<()> {
             "选中令牌后按 ⌘C 复制。请勿分享或写入笔记库。",
             "Select the token and press ⌘C to copy. Do not share or store it in your vault.",
             "トークンを選択して ⌘C でコピー。共有やノート庫への保存は避けてください。",
+            "選中令牌後按 ⌘C 複製。請勿分享或寫入筆記庫。",
         )));
         let field = NSTextField::new(mtm);
         field.setFrame(NSRect::new(NSPoint::new(0., 0.), NSSize::new(550., 28.)));
@@ -70,11 +71,13 @@ pub fn show() -> ApiResult<()> {
             "复制令牌",
             "Copy token",
             "トークンをコピー",
+            "複製令牌",
         )));
         alert.addButtonWithTitle(&NSString::from_str(crate::language::text(
             "关闭",
             "Close",
             "閉じる",
+            "關閉",
         )));
         if alert.runModal() == 1000 {
             let board = NSPasteboard::generalPasteboard();
@@ -94,6 +97,7 @@ pub fn show() -> ApiResult<()> {
             "是否复制访问令牌？",
             "Copy this access token?",
             "アクセストークンをコピーしますか？",
+            "是否複製訪問令牌？",
         ),
     )
     .map_err(failure)?;

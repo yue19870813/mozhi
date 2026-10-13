@@ -22,6 +22,6 @@ export function LanguageSettings() {
     }
   }
   return <><div className="setting-row"><label htmlFor="interface-language">{t('语言')}</label><select id="interface-language" disabled={saving} value={language} onChange={event => void change(event.target.value as Language)}>
-    <option value="zh-CN">简体中文</option><option value="en">English</option><option value="ja">日本語</option>
+    <option value="zh-CN">简体中文</option><option value="zh-TW">繁體中文</option><option value="en">English</option><option value="ja">日本語</option>
   </select></div>{error && <p className="notice error" role="alert">{t(error)}</p>}</>;
 }

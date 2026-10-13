@@ -5,7 +5,7 @@ use tauri::{
 
 pub const MENU_ID: &str = "mozhi-about";
 pub fn title() -> &'static str {
-    crate::language::text("关于墨知", "About MoZhi", "MoZhi について")
+    crate::language::text("关于墨知", "About MoZhi", "MoZhi について", "關於墨知")
 }
 
 pub fn install(app: &AppHandle) -> tauri::Result<()> {

@@ -4,6 +4,7 @@ import { getLanguage, initializeLanguage, languageKey, readLanguage, setLanguage
 import { LanguageSettings } from './LanguageSettings';
 import { HomePage } from './HomePage';
 import { translations } from './locales';
+import { traditionalTranslations } from './locales-zh-TW';
 import ts from 'typescript';
 
 const storage = () => {
@@ -13,7 +14,8 @@ const storage = () => {
 afterEach(() => setLanguage('en'));
 describe('language preferences', () => {
   it('maps Chinese and Japanese system locales and uses English for every other language', () => {
-    for (const locale of ['zh-CN', 'zh-TW', 'zh_HK', 'ZH']) expect(systemLanguage(locale)).toBe('zh-CN');
+    for (const locale of ['zh-CN', 'zh-Hans', 'zh-Hans-TW', 'ZH']) expect(systemLanguage(locale)).toBe('zh-CN');
+    for (const locale of ['zh-TW', 'zh_HK', 'zh-MO', 'zh-Hant', 'zh-Hant-CN']) expect(systemLanguage(locale)).toBe('zh-TW');
     for (const locale of ['ja', 'ja-JP', 'ja_JP']) expect(systemLanguage(locale)).toBe('ja');
     for (const locale of ['en-US', 'fr-FR', 'de', '', 'invalid']) expect(systemLanguage(locale)).toBe('en');
   });
@@ -22,9 +24,9 @@ describe('language preferences', () => {
     initializeLanguage('ja-JP', preferences);
     expect(getLanguage()).toBe('ja');
     expect(preferences.getItem(languageKey)).toBe('ja');
-    setLanguage('zh-CN', preferences);
+    setLanguage('zh-TW', preferences);
     initializeLanguage('en-US', preferences);
-    expect(getLanguage()).toBe('zh-CN');
+    expect(getLanguage()).toBe('zh-TW');
   });
   it('recovers invalid or inaccessible preferences without interrupting startup', () => {
     const preferences = storage();
@@ -33,11 +35,11 @@ describe('language preferences', () => {
     initializeLanguage('fr-FR', { getItem: () => { throw Error('blocked'); }, setItem: () => { throw Error('blocked'); } });
     expect(getLanguage()).toBe('en');
   });
-  it('renders all three language choices and translates UI without changing user note titles or paths', () => {
-    for (const language of ['zh-CN', 'en', 'ja'] as const) {
+  it('renders all four language choices and translates UI without changing user note titles or paths', () => {
+    for (const language of ['zh-CN', 'zh-TW', 'en', 'ja'] as const) {
       setLanguage(language);
       const settings = renderToStaticMarkup(<LanguageSettings/>);
-      for (const name of ['简体中文', 'English', '日本語']) expect(settings).toContain(name);
+      for (const name of ['简体中文', '繁體中文', 'English', '日本語']) expect(settings).toContain(name);
       const html = renderToStaticMarkup(<HomePage pinned={[{path:'用户/笔记.md',title:'我的私人内容'}]} recent={[]} all={false} busy={false} canCreate onTogglePin={()=>{}} onOpen={()=>{}} onAll={()=>{}} onNew={()=>{}} onBrowse={()=>{}}/>);
       expect(html).toContain('我的私人内容');
       expect(html).toContain('用户/笔记.md');
@@ -47,7 +49,14 @@ describe('language preferences', () => {
   });
   it('provides complete nonempty dictionaries and interpolates values without translating their contents', () => {
     for (const pair of Object.values(translations)) expect(pair.every(value => !!value.trim())).toBe(true);
+    expect(Object.keys(traditionalTranslations).sort()).toEqual(Object.keys(translations).sort());
+    for (const value of Object.values(traditionalTranslations)) expect(value.trim()).not.toBe('');
+    setLanguage('zh-TW');
+    expect(t('设置')).toBe('設置');
+    const traditionalMessage = t('已创建 {0}', '设置.md');
+    expect(traditionalMessage).toBe('已創建 设置.md');
     setLanguage('en');
+    expect(t(traditionalMessage)).toBe('Created 设置.md');
     const message = t('已创建 {0}', '设置.md');
     expect(message).toBe('Created 设置.md');
     setLanguage('ja');

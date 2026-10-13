@@ -280,6 +280,7 @@ async fn open_vault(
                 "选择 Markdown 笔记目录",
                 "Choose Markdown vault folder",
                 "Markdown 保管庫のフォルダーを選択",
+                "選擇 Markdown 筆記目錄",
             ))
             .blocking_pick_folder()
         else {

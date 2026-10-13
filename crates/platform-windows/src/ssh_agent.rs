@@ -241,6 +241,7 @@ pub fn dispatch_askpass() -> Option<i32> {
 
 fn validated_language(language: &str) -> &str {
     match language {
+        "zh-TW" => "zh-TW",
         "en" => "en",
         "ja" => "ja",
         _ => "zh-CN",
@@ -249,6 +250,7 @@ fn validated_language(language: &str) -> &str {
 
 fn prompt_text(language: &str) -> (&'static str, &'static str) {
     match validated_language(language) {
+        "zh-TW" => ("墨知 · 載入 SSH 金鑰", "請輸入所選 SSH 私鑰的密碼。密碼僅用於本次載入，不會儲存。"),
         "en" => ("MoZhi · Load SSH key", "Enter the selected SSH private key's passphrase. It is used only for this load and will not be saved."),
         "ja" => ("墨知 · SSH 秘密鍵を読み込む", "選択した SSH 秘密鍵のパスフレーズを入力してください。今回の読み込みにのみ使用し、保存しません。"),
         _ => ("墨知 · 加载 SSH 密钥", "请输入所选 SSH 私钥的密码。密码仅用于本次加载，不会保存。"),

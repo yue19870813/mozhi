@@ -403,7 +403,7 @@ pub async fn workspace(
                         .dialog()
                         .file()
                         .add_filter(
-                            crate::language::text("图片", "Images", "画像"),
+                            crate::language::text("图片", "Images", "画像", "圖片"),
                             &["png", "jpg", "jpeg", "gif", "webp"],
                         )
                         .blocking_pick_file()
@@ -524,6 +524,7 @@ pub async fn clone_vault(
                 "选择新笔记库的父目录",
                 "Choose parent folder for new vault",
                 "新しい保管庫の親フォルダーを選択",
+                "選擇新筆記庫的父目錄",
             ))
             .blocking_pick_folder()
         else {

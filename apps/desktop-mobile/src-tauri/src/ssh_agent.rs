@@ -79,6 +79,7 @@ mod macos {
             "选择 SSH 私钥（非 .pub 公钥）",
             "Choose SSH private key (not a .pub public key)",
             "SSH 秘密鍵を選択（.pub 公開鍵以外）",
+            "選擇 SSH 私鑰（非 .pub 公鑰）",
         ));
         if let Some(home) = std::env::var_os("HOME") {
             let directory = std::path::PathBuf::from(home).join(".ssh");
@@ -236,14 +237,18 @@ mod windows {
             "选择 SSH 私钥（非 .pub 公钥）",
             "Choose SSH private key (not a .pub public key)",
             "SSH 秘密鍵を選択（.pub 公開鍵以外）",
+            "選擇 SSH 私鑰（非 .pub 公鑰）",
         ));
         let Some(file) = dialog.blocking_pick_file() else {
             return Ok(None);
         };
         let path = file.into_path().map_err(|_| failure("私钥文件路径无效"))?;
-        mozhi_windows::ssh_agent::add_key(&path, crate::language::text("zh-CN", "en", "ja"))
-            .map(|key_count| Some(AgentStatus { key_count }))
-            .map_err(|message| failure(&message))
+        mozhi_windows::ssh_agent::add_key(
+            &path,
+            crate::language::text("zh-CN", "en", "ja", "zh-TW"),
+        )
+        .map(|key_count| Some(AgentStatus { key_count }))
+        .map_err(|message| failure(&message))
     }
 }
 

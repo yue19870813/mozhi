@@ -8,18 +8,10 @@ const SERVICE: &str = "app.mozhi.notes.git";
 #[cfg(target_os = "macos")]
 pub(crate) fn keychain_error(code: i32) -> crate::ApiError {
     let message = match code {
-        -67050 | -67045 => crate::language::text(
-            "Keychain 拒绝当前应用签名。请退出并重新打开墨知；开发版重新编译后，可能需要在“钥匙串访问”中重新授权该凭据。",
-            "Keychain rejected the app signature. Quit and reopen MoZhi; rebuilt development apps may need credential access authorized again in Keychain Access.",
-            "Keychain がアプリの署名を拒否しました。MoZhi を終了して再起動してください。開発版の再ビルド後はキーチェーンアクセスで再認証が必要な場合があります。",
-        ),
-        -25293 | -25308 => crate::language::text(
-            "Keychain 访问被拒绝或钥匙串已锁定。请在“钥匙串访问”中解锁登录钥匙串，并允许墨知访问该凭据。",
-            "Keychain access was denied or locked. Unlock the login keychain in Keychain Access and allow MoZhi to access this credential.",
-            "Keychain へのアクセスが拒否されたか、ロックされています。キーチェーンアクセスでログインキーチェーンを解除し、MoZhi にアクセスを許可してください。",
-        ),
-        -128 => crate::language::text("已取消 Keychain 授权", "Keychain authorization cancelled", "Keychain の認証がキャンセルされました"),
-        _ => crate::language::text("无法访问 Keychain", "Could not access Keychain", "Keychain にアクセスできませんでした"),
+        -67050 | -67045 => crate::language::text("Keychain 拒绝当前应用签名。请退出并重新打开墨知；开发版重新编译后，可能需要在“钥匙串访问”中重新授权该凭据。", "Keychain rejected the app signature. Quit and reopen MoZhi; rebuilt development apps may need credential access authorized again in Keychain Access.", "Keychain がアプリの署名を拒否しました。MoZhi を終了して再起動してください。開発版の再ビルド後はキーチェーンアクセスで再認証が必要な場合があります。", "Keychain 拒絕當前應用簽名。請退出並重新打開墨知；開發版重新編譯後，可能需要在“鑰匙串訪問”中重新授權該憑據。"),
+        -25293 | -25308 => crate::language::text("Keychain 访问被拒绝或钥匙串已锁定。请在“钥匙串访问”中解锁登录钥匙串，并允许墨知访问该凭据。", "Keychain access was denied or locked. Unlock the login keychain in Keychain Access and allow MoZhi to access this credential.", "Keychain へのアクセスが拒否されたか、ロックされています。キーチェーンアクセスでログインキーチェーンを解除し、MoZhi にアクセスを許可してください。", "Keychain 訪問被拒絕或鑰匙串已鎖定。請在“鑰匙串訪問”中解鎖登錄鑰匙串，並允許墨知訪問該憑據。"),
+        -128 => crate::language::text("已取消 Keychain 授权", "Keychain authorization cancelled", "Keychain の認証がキャンセルされました", "已取消 Keychain 授權"),
+        _ => crate::language::text("无法访问 Keychain", "Could not access Keychain", "Keychain にアクセスできませんでした", "無法訪問 Keychain"),
     };
     // Only the OS status is exposed, never the secret or arbitrary native error text.
     failure(format!("{message} (OSStatus {code})"))
@@ -43,6 +35,7 @@ pub fn prompt(config: &Config) -> ApiResult<bool> {
             "保存 Git Token 到 macOS Keychain",
             "Save Git token to macOS Keychain",
             "Git Token を macOS Keychain に保存",
+            "保存 Git Token 到 macOS Keychain",
         ),
     )
 }
@@ -56,19 +49,20 @@ pub fn prompt_named(config: &Config, service: &str, title: &str) -> ApiResult<bo
     alert.setMessageText(&NSString::from_str(title));
     alert.setInformativeText(&NSString::from_str(&format!(
         "{}: {}\n{}: {}\n{}",
-        crate::language::text("服务", "Service", "サービス"),
+        crate::language::text("服务", "Service", "サービス", "服務"),
         config.url,
-        crate::language::text("账户", "Account", "アカウント"),
+        crate::language::text("账户", "Account", "アカウント", "賬戶"),
         config.username,
-        crate::language::text("凭据仅由原生 Rust 读取，不进入网页、日志或设置文件。", "Credentials are read only by native Rust, never by web pages, logs, or settings files.", "資格情報はネイティブ Rust のみが読み取り、ウェブ画面、ログ、設定ファイルには保存しません。")
+        crate::language::text("凭据仅由原生 Rust 读取，不进入网页、日志或设置文件。", "Credentials are read only by native Rust, never by web pages, logs, or settings files.", "資格情報はネイティブ Rust のみが読み取り、ウェブ画面、ログ、設定ファイルには保存しません。", "憑據僅由原生 Rust 讀取，不進入網頁、日誌或設置文件。")
     )));
     alert.addButtonWithTitle(&NSString::from_str(crate::language::text(
-        "保存", "Save", "保存",
+        "保存", "Save", "保存", "保存",
     )));
     alert.addButtonWithTitle(&NSString::from_str(crate::language::text(
         "取消",
         "Cancel",
         "キャンセル",
+        "取消",
     )));
     let field = NSSecureTextField::new(mtm);
     field.setFrame(NSRect::new(NSPoint::new(0., 0.), NSSize::new(360., 28.)));
@@ -76,6 +70,7 @@ pub fn prompt_named(config: &Config, service: &str, title: &str) -> ApiResult<bo
         "输入凭据",
         "Enter credential",
         "資格情報を入力",
+        "輸入憑據",
     ))));
     alert.setAccessoryView(Some(&field));
     if alert.runModal() != 1000 {
@@ -121,6 +116,7 @@ pub fn prompt(config: &Config) -> ApiResult<bool> {
             "墨知 · 保存 Git Token",
             "MoZhi · Save Git token",
             "MoZhi · Git Token を保存",
+            "墨知 · 保存 Git Token",
         ),
         &crate::language::credential_instructions(&config.url, &config.username),
     )

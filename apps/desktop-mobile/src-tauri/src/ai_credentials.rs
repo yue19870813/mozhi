@@ -32,6 +32,7 @@ pub fn prompt(config: &Config) -> ApiResult<bool> {
             "墨知 · 保存模型 API Key",
             "MoZhi · Save model API key",
             "MoZhi · モデル API キーを保存",
+            "墨知 · 保存模型 API Key",
         ),
     )
 }
@@ -62,6 +63,7 @@ pub fn prompt(config: &Config) -> ApiResult<bool> {
             "墨知 · 保存模型 API Key",
             "MoZhi · Save model API key",
             "MoZhi · モデル API キーを保存",
+            "墨知 · 保存模型 API Key",
         ),
         &crate::language::credential_instructions(&config.service()?, "ai"),
     )

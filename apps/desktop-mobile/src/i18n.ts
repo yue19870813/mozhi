@@ -1,17 +1,20 @@
 import { useSyncExternalStore } from 'react';
 import { translations } from './locales';
+import { traditionalTranslations } from './locales-zh-TW';
 
-export type Language = 'zh-CN' | 'en' | 'ja';
+export type Language = 'zh-CN' | 'zh-TW' | 'en' | 'ja';
 export const languageKey = 'mozhi-language';
 type PreferenceStorage = Pick<Storage, 'getItem' | 'setItem'>;
 export function systemLanguage(locale: string): Language {
-  const primary = locale.toLowerCase().split(/[-_]/)[0];
+  const parts = locale.toLowerCase().split(/[-_]/);
+  const primary = parts[0];
+  if (primary === 'zh' && (parts.includes('hant') || (!parts.includes('hans') && parts.some(part => ['tw', 'hk', 'mo'].includes(part))))) return 'zh-TW';
   return primary === 'zh' ? 'zh-CN' : primary === 'ja' ? 'ja' : 'en';
 }
 export function readLanguage(storage: PreferenceStorage, locale: string): Language {
   try {
     const saved = storage.getItem(languageKey);
-    if (saved === 'zh-CN' || saved === 'en' || saved === 'ja') return saved;
+    if (saved === 'zh-CN' || saved === 'zh-TW' || saved === 'en' || saved === 'ja') return saved;
   } catch { /* A blocked preference store must not prevent startup. */ }
   return systemLanguage(locale);
 }
@@ -36,13 +39,14 @@ function format(text: string, values: unknown[]) {
 }
 const reverse = new Map<string, string>();
 for (const [key, values] of Object.entries(translations)) for (const value of values) reverse.set(value, key);
+for (const [key, value] of Object.entries(traditionalTranslations)) reverse.set(value, key);
 // Existing status messages can change language without altering interpolated paths or names.
 const messages = new Map<string, { key: string; values: unknown[] }>();
 export function t(key: string, ...values: unknown[]): string {
   const cached = messages.get(key);
   if (cached && !values.length) return t(cached.key, ...cached.values);
   const source = translations[key] ? key : reverse.get(key) ?? key;
-  const translated = language === 'zh-CN' ? source : translations[source]?.[language === 'en' ? 0 : 1] ?? key;
+  const translated = language === 'zh-CN' ? source : language === 'zh-TW' ? traditionalTranslations[source] ?? source : translations[source]?.[language === 'en' ? 0 : 1] ?? key;
   const result = format(translated, values);
   if (values.length && result !== source) {
     if (messages.size >= 256) messages.delete(messages.keys().next().value!);
