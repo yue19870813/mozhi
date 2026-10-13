@@ -1,5 +1,7 @@
 // Source text remains the Simplified Chinese fallback. Note content is never translated.
 export const translations: Record<string, readonly [string, string]> = {
+  '在默认浏览器中打开': ['Open in default browser', '既定のブラウザーで開く'],
+  '无法打开网页链接，请检查默认浏览器设置。': ['Could not open the web link. Check your default browser settings.', 'リンクを開けませんでした。既定のブラウザーの設定を確認してください。'],
   "已授权": ["Authorized", "許可済み"],
   "无法保存 MCP 授权": ["Unable to save MCP authorization", "MCP の許可を保存できません"],
   "无法复制 MCP 令牌": ["Unable to copy MCP token", "MCP トークンをコピーできません"],

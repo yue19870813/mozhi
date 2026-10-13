@@ -1,5 +1,7 @@
 // Traditional Chinese UI text. User content is never converted.
 export const traditionalTranslations: Record<string, string> = {
+  '在默认浏览器中打开': '在預設瀏覽器中開啟',
+  '无法打开网页链接，请检查默认浏览器设置。': '無法開啟網頁連結，請檢查預設瀏覽器設定。',
   "已授权": "已授權",
   "无法保存 MCP 授权": "無法保存 MCP 授權",
   "无法复制 MCP 令牌": "無法複製 MCP 令牌",

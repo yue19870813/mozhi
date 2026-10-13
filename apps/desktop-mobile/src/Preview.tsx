@@ -4,6 +4,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { native, workspace } from './api';
 import type { Root, Parent, Text, Link } from 'mdast';
+import { openWebUrl, webUrl } from './external-links';
 function wikiLinks(){return (tree:Root)=>{
   function visit(parent:Parent){
     const children:typeof parent.children=[];
@@ -27,8 +28,13 @@ function Attachment({path,src,alt}:{path:string;src?:string;alt?:string}){
 }
 export function Preview({content,path='',onOpen}:{content:string;path?:string;onOpen:(path:string,wiki?:boolean)=>void}){
   useLanguage();
-  return <article className="markdown-preview"><ReactMarkdown remarkPlugins={[remarkGfm,wikiLinks]} skipHtml components={{
-    a:({href,children})=><button className="inline-link" title={href} onClick={()=>{if(!href)return;try{if(href.startsWith('#mozhi-wiki=')){onOpen(decodeURIComponent(href.slice(12)),true);}else if(!/^[a-z][a-z\d+.-]*:/i.test(href)&&!href.startsWith('/'))onOpen(decodeURIComponent(href));}catch{/* Malformed URLs are inert. */}}}>{children}</button>,
+  const [linkError, setLinkError] = useState(false);
+  return <article className="markdown-preview">{linkError&&<p role="alert" className="notice error">{t('无法打开网页链接，请检查默认浏览器设置。')}</p>}<ReactMarkdown remarkPlugins={[remarkGfm,wikiLinks]} skipHtml components={{
+    a:({href,children})=> {
+      const external = href ? webUrl(href) : null;
+      if (external) return <a className="inline-link" href={external} title={t('在默认浏览器中打开')} target="_blank" rel="noopener noreferrer" onClick={event=>{event.preventDefault();setLinkError(false);void openWebUrl(external).catch(()=>setLinkError(true));}}>{children}</a>;
+      return <button className="inline-link" title={href} onClick={()=>{if(!href)return;try{if(href.startsWith('#mozhi-wiki=')){onOpen(decodeURIComponent(href.slice(12)),true);}else if(!/^[a-z][a-z\d+.-]*:/i.test(href)&&!href.startsWith('/'))onOpen(decodeURIComponent(href));}catch{/* Malformed URLs are inert. */}}}>{children}</button>;
+    },
     img:({src,alt})=><Attachment path={path} src={src} alt={alt}/>,
   }}>{content.replace(/^---\r?\n[\s\S]*?\r?\n---(?:\r?\n|$)/,'')}</ReactMarkdown></article>;
 }

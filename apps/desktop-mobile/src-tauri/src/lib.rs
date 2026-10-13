@@ -4,6 +4,7 @@ mod ai_credentials;
 mod ai_service;
 mod credentials;
 mod demo;
+mod external_links;
 mod file_manager;
 mod language;
 mod mcp;
@@ -396,6 +397,7 @@ async fn run_probes() -> ApiResult<serde_json::Value> {
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_opener::init())
         .manage(AppState::default())
         .manage(ai::AiState::default())
         .manage(mcp::McpState::default())
@@ -414,6 +416,7 @@ pub fn run() {
             }
         })
         .invoke_handler(tauri::generate_handler![
+            external_links::open_external_link,
             mcp::mcp_request,
             mcp::mcp_token,
             workspace::workspace,

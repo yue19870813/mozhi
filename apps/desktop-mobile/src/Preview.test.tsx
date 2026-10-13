@@ -3,6 +3,14 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { Preview } from './Preview';
 function render(content:string){return renderToStaticMarkup(<Preview content={content} onOpen={()=>{}}/>);}
 describe('untrusted Markdown preview',()=>{
+  it('renders web links as external anchors while keeping note links inside the app',()=>{
+    const output=render('[web](https://example.com/docs?q=1#part)\n[note](notes/test.md)\n[[目标]]');
+    expect(output).toContain('href="https://example.com/docs?q=1#part"');
+    expect(output).toContain('rel="noopener noreferrer"');
+    expect(output).toContain('target="_blank"');
+    expect(output).toContain('note</button>');
+    expect(output).toContain('目标</button>');
+  });
   it('does not render executable HTML or load remote images',()=>{
     const output=render('<script>alert(1)</script>\n\n<iframe src="https://evil.test"></iframe>\n\n![tracking](https://evil.test/pixel)\n\n[run](javascript:alert%281%29)');
     expect(output).not.toContain('<script');expect(output).not.toContain('<iframe');expect(output).not.toContain('<img');expect(output).not.toContain('href="javascript:');
