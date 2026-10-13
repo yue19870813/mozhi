@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { EditorView } from '@codemirror/view';
 import { SearchQuery, setSearchQuery, replaceAll, replaceNext, openSearchPanel, findNext, searchPanelOpen } from '@codemirror/search';
 import { undo } from '@codemirror/commands';
+import { completionStatus, currentCompletions } from '@codemirror/autocomplete';
 import { Editor } from './Editor';
 import { setLanguage } from './i18n';
 import { matchCount } from './editor-search';
@@ -95,5 +96,24 @@ describe('editor find and replace', () => {
     render(false, 'other-note');
     expect(host.querySelector('[name=search]')).toBeNull();
     expect(host.querySelector('[role=status]')).toBeNull();
+  });
+});
+
+describe('Wiki link suggestions', () => {
+  it('opens suggestions after typing [[ and identifies candidates by path', async () => {
+    const notes = ['工作/计划.md','个人/计划.md'].map(path => ({path,title:'项目计划',id:null,tags:[],references:[],issues:[]}));
+    act(() => root.render(<Editor documentKey="wiki" value="See " path="工作/当前.md" notes={notes} readOnly={false} onChange={change} onComposition={()=>{}}/>));
+    const view = EditorView.findFromDOM(host.querySelector('.cm-editor')!)!;
+    await act(async () => {
+      view.dispatch({changes:{from:4,insert:'[['},selection:{anchor:6}});
+      await vi.waitFor(() => expect(completionStatus(view.state)).toBe('active'));
+    });
+    expect(currentCompletions(view.state).map(option => option.detail)).toEqual(['工作/计划.md','个人/计划.md']);
+    act(() => {
+      const candidate = currentCompletions(view.state)[0];
+      expect(typeof candidate.apply).toBe('function');
+      (candidate.apply as (view: EditorView, option: typeof candidate, from: number, to: number) => void)(view, candidate, 6, 6);
+    });
+    expect(view.state.doc.toString()).toBe('See [[工作/计划]]');
   });
 });

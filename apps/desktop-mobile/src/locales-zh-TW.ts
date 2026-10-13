@@ -1,5 +1,11 @@
 // Traditional Chinese UI text. User content is never converted.
 export const traditionalTranslations: Record<string, string> = {
+  '大纲': '大綱',
+  '笔记侧栏': '筆記側欄',
+  '关闭笔记侧栏': '關閉筆記側欄',
+  '本文大纲': '本文大綱',
+  '无标题': '無標題',
+  '本文没有标题': '本文沒有標題',
   '查找': '查找',
   '替换': '替換',
   '下一个': '下一個',

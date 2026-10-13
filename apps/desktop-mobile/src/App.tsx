@@ -202,7 +202,10 @@ export default function App() {
   const { setQuery, setTag, setDirectory } = search;
   const tags = [...new Set(notes.flatMap((note) => note.tags))].sort();
   const updateKnowledge = useCallback(async () => {
-    if (!native) return;
+    if (!native) {
+      setNotes(api.demoNotes());
+      return;
+    }
     const id = vaultRef.current?.id;
     const [entries, parsed] = await Promise.all([
       workspace<TreeEntry[]>({ action: "tree" }),

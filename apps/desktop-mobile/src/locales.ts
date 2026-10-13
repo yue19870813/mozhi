@@ -1,5 +1,11 @@
 // Source text remains the Simplified Chinese fallback. Note content is never translated.
 export const translations: Record<string, readonly [string, string]> = {
+  '大纲': ['Outline', 'アウトライン'],
+  '笔记侧栏': ['Note sidebar', 'ノートのサイドバー'],
+  '关闭笔记侧栏': ['Close note sidebar', 'ノートのサイドバーを閉じる'],
+  '本文大纲': ['Document outline', '本文のアウトライン'],
+  '无标题': ['Untitled heading', '無題の見出し'],
+  '本文没有标题': ['No headings in this note', 'このノートに見出しはありません'],
   '查找': ['Find', '検索'],
   '替换': ['Replace', '置換'],
   '下一个': ['Next', '次へ'],

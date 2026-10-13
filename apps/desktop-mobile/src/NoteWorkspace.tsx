@@ -6,6 +6,9 @@ import { native, type ParsedNote } from "./api";
 import { platform } from "./platform";
 import type { EditorMode } from "./navigation";
 import { noteStats } from "./note-stats";
+import { useMemo, useState } from "react";
+import { ListTree, Link2, X } from "lucide-react";
+import { noteOutline } from "./note-outline";
 
 type Props = {
   visible: boolean;
@@ -77,6 +80,17 @@ export function NoteWorkspace({
 }: Props) {
   useLanguage();
   const { count, minutes } = noteStats(content);
+  const headings = useMemo(() => noteOutline(content), [content]);
+  const [panel, setPanel] = useState<"outline" | "relations">("outline");
+  const [jump, setJump] = useState<{ offset: number; serial: number; documentKey: string } | null>(null);
+  const currentJump = jump?.documentKey === `${vaultId}:${path}` ? jump : null;
+  function showPanel(next: "outline" | "relations") {
+    if (relationsOpen && panel === next) onCloseRelations();
+    else {
+      setPanel(next);
+      if (!relationsOpen) onToggleRelations();
+    }
+  }
   return (
     <section hidden={!visible} className="note-workspace">
       <header className="note-heading">
@@ -139,11 +153,18 @@ export function NoteWorkspace({
                 {t("插入图片")}
               </button>
               <button
-                aria-expanded={relationsOpen}
+                aria-expanded={relationsOpen && panel === "outline"}
                 aria-controls="note-relations"
-                onClick={onToggleRelations}
+                onClick={() => showPanel("outline")}
               >
-                {t("关联信息")}
+                <ListTree size={15} aria-hidden="true" /> {t("大纲")}
+              </button>
+              <button
+                aria-expanded={relationsOpen && panel === "relations"}
+                aria-controls="note-relations"
+                onClick={() => showPanel("relations")}
+              >
+                <Link2 size={15} aria-hidden="true" /> {t("关联信息")}
               </button>
               <details className="note-menu">
                 <summary aria-label={t("笔记操作")} title={t("更多笔记操作")}>
@@ -188,6 +209,9 @@ export function NoteWorkspace({
                   readOnly={busy || syncBlocked || syncing}
                   onChange={onChange}
                   onComposition={onComposition}
+                  notes={notes}
+                  path={path}
+                  jump={mode !== "preview" ? currentJump : null}
                 />
               </div>
             }
@@ -196,7 +220,7 @@ export function NoteWorkspace({
                 <div className="pane-label">
                   {t("预览")} <span>{t("安全渲染")}</span>
                 </div>
-                <Preview content={content} path={path} onOpen={onLink} />
+                <Preview content={content} path={path} onOpen={onLink} jump={mode !== "source" ? currentJump : null} />
               </div>
             }
           </div>
@@ -205,13 +229,13 @@ export function NoteWorkspace({
             className="relations"
             hidden={!relationsOpen}
           >
-            <button
-              className="relation-close"
-              aria-label={t("关闭关联信息")}
-              onClick={onCloseRelations}
-            >
-              ×
-            </button>
+            <div className="note-panel-header"><div className="note-panel-tabs" role="tablist" aria-label={t("笔记侧栏")}>
+              <button role="tab" aria-selected={panel === "outline"} onClick={() => setPanel("outline")}>{t("大纲")}</button>
+              <button role="tab" aria-selected={panel === "relations"} onClick={() => setPanel("relations")}>{t("关联信息")}</button>
+            </div><button className="relation-close" aria-label={t("关闭笔记侧栏")} onClick={onCloseRelations}><X size={16}/></button></div>
+            {panel === "outline" ? <nav className="note-outline" aria-label={t("本文大纲")}>
+              {headings.length ? headings.map((heading, index) => <button key={`${heading.offset}-${index}`} className="outline-item" style={{paddingLeft: 8 + (heading.level - 1) * 12}} title={heading.text} onClick={() => setJump({offset:heading.offset,serial:Date.now() + index,documentKey:`${vaultId}:${path}`})}>{heading.text || t("无标题")}</button>) : <p className="subtle">{t("本文没有标题")}</p>}
+            </nav> : <>
             <h3>{t("标签")}</h3>
             <p className="subtle">{t("在 front matter 的 tags 数组中编辑")}</p>
             <div className="tag-list">
@@ -257,6 +281,7 @@ export function NoteWorkspace({
                 {issue}
               </p>
             ))}
+            </>}
           </aside>
         </div>
       ) : (

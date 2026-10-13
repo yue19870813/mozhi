@@ -30,6 +30,16 @@ export async function aiRequest<T>(vaultId: string, request: Record<string, unkn
   return invoke('ai_request', { vaultId, request });
 }
 export const api = {
+  demoNotes(): ParsedNote[] {
+    return [...samples].map(([path, content]) => ({
+      path,
+      id: null,
+      title: content.match(/^# (.+)$/m)?.[1] ?? path.replace(/\.md$/i, ''),
+      tags: [],
+      references: [],
+      issues: [],
+    }));
+  },
   async openDemo(): Promise<Vault> {
     return native ? invoke('open_demo') : { id: 'demo', name: t("墨知示例笔记"), demo: true, entries: [...samples].map(([path, content]) => ({ path, bytes: new TextEncoder().encode(content).length })), skipped: [] };
   },

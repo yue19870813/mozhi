@@ -123,9 +123,20 @@ summary { cursor:pointer; }
 .editing-area { position:relative; }
 .editing-area .document-panes { margin:0 24px; }
 .relations { display:block; position:absolute; right:24px; top:0; bottom:0; width:min(300px,calc(100% - 32px)); background:var(--panel); border:1px solid var(--border); border-radius:8px; box-shadow:-8px 0 28px #0002; z-index:10; padding:16px; }
+@media(min-width:1201px) { .relations:not([hidden]) { position:static; flex:0 0 260px; width:260px; margin-right:24px; box-shadow:none; } }
 .relation-close { float:right; border:0; background:none; font-size:20px; padding:0 6px; }
 .relations h3 { font-size:13px; margin-top:18px; }
 .relations .subtle,.relation-link,.tag-list button { font-size:12px; }
+.note-panel-header { display:flex; align-items:center; justify-content:space-between; gap:8px; padding-bottom:10px; border-bottom:1px solid var(--border); }
+.note-panel-tabs { display:flex; gap:3px; min-width:0; }
+.note-panel-tabs button { padding:5px 9px; border:0; background:transparent; color:var(--muted); font-size:12px; }
+.note-panel-tabs button[aria-selected=true] { color:var(--accent); background:var(--selected); }
+.note-panel-header .relation-close { float:none; display:grid; place-items:center; width:28px; height:28px; flex-shrink:0; }
+.note-outline { display:flex; flex-direction:column; gap:2px; padding-top:12px; }
+.outline-item { display:block; width:100%; border:0; background:transparent; text-align:left; color:var(--muted); font-size:12px; line-height:1.5; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.outline-item:hover,.outline-item:focus-visible { color:var(--text); background:var(--selected); }
+.note-outline .subtle { padding:10px 8px; }
+.note-tools>button svg { vertical-align:middle; }
 .document-footer { gap:10px; flex-wrap:wrap; }
 .graph-filters { display:flex; flex-direction:column; gap:18px; padding:10px 6px; }
 .graph-filters label { display:flex; flex-direction:column; gap:8px; color:var(--muted); font-size:12px; }
@@ -488,3 +499,9 @@ summary { cursor:pointer; }
 .editor-host .cm-search button[name=close] { color:var(--muted); font-size:18px; }
 .editor-host .cm-searchMatch { background:color-mix(in srgb,var(--accent) 22%,transparent); }
 .editor-host .cm-searchMatch-selected { background:color-mix(in srgb,var(--accent) 40%,transparent); outline:1px solid var(--accent); }
+body > div > .cm-tooltip.cm-tooltip-autocomplete { z-index:50; max-width:min(520px,calc(100vw - 24px)); background:var(--panel); color:var(--text); border:1px solid var(--border); border-radius:6px; box-shadow:0 12px 28px #0005; font:13px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC",sans-serif; overflow:hidden; }
+body > div > .cm-tooltip.cm-tooltip-autocomplete > ul { min-width:0; max-width:100%; max-height:280px; margin:0; padding:4px; overflow-y:auto; list-style:none; }
+body > div > .cm-tooltip.cm-tooltip-autocomplete li[role=option] { padding:6px 9px; border-radius:4px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--text); }
+body > div > .cm-tooltip.cm-tooltip-autocomplete li[role=option][aria-selected] { background:var(--selected); color:var(--text); }
+body > div > .cm-tooltip.cm-tooltip-autocomplete .cm-completionDetail { margin-left:10px; color:var(--muted); font-style:normal; }
+body > div > .cm-tooltip.cm-tooltip-autocomplete .cm-completionMatchedText { color:var(--accent); text-decoration:none; font-weight:600; }
