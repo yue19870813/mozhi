@@ -73,7 +73,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: ${{ needs.prepare.outputs.commit }}
-      - name: Verify updater signing key is configured
+      - name: Verify updater signing key is configured (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
         env:
@@ -82,11 +82,7 @@ jobs:
           if ([string]::IsNullOrWhiteSpace($env:UPDATER_PRIVATE_KEY)) {
             throw 'GitHub Actions did not provide TAURI_SIGNING_PRIVATE_KEY to the Windows runner.'
           }
-          $keyPath = Join-Path $env:RUNNER_TEMP 'tauri-updater.key'
-          $encoding = [System.Text.UTF8Encoding]::new($false)
-          [System.IO.File]::WriteAllText($keyPath, $env:UPDATER_PRIVATE_KEY, $encoding)
-          Add-Content -Path $env:GITHUB_ENV -Value "TAURI_SIGNING_PRIVATE_KEY=$keyPath"
-          Write-Host 'Updater signing key was prepared in the runner temp directory.'
+          Write-Host 'Updater signing key is available.'
       - name: Verify updater signing key is configured (Intel macOS)
         if: runner.os == 'macOS'
         shell: bash
@@ -135,6 +131,8 @@ jobs:
       - run: cargo clippy --workspace --all-targets --locked -- -D warnings
       - name: Build Windows installer
         if: matrix.name == 'windows-x64'
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
         run: npm run tauri -- build --ci --verbose --bundles ${{ matrix.bundle }} -- --locked
       - name: Build Apple Silicon macOS app
         if: matrix.name == 'macos-arm64'
