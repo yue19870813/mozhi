@@ -229,13 +229,13 @@ summary { cursor:pointer; }
 .about-description { max-width:680px; font-size:14px; line-height:1.9; overflow-wrap:anywhere; }
 .about-description p { margin:0 0 16px; }
 .about-details { max-width:680px; margin:28px 0 0; font-size:13px; }
-.about-details>div { display:grid; grid-template-columns:minmax(100px,1fr) minmax(0,2fr); gap:16px; padding:16px 0; border-top:1px solid var(--border); }
+.about-details>div { display:grid; grid-template-columns:minmax(100px,1fr) minmax(0,2fr); align-items:center; gap:16px; padding:16px 0; border-top:1px solid var(--border); }
 .about-details dt { color:var(--muted); overflow-wrap:anywhere; }
 .about-details dd { margin:0; overflow-wrap:anywhere; }
-.about-update { display:flex; align-items:center; flex-wrap:wrap; gap:10px; }
-.about-update button { display:inline-flex; align-items:center; gap:7px; }
+.about-update { display:flex; align-items:center; min-width:0; gap:8px; }
+.about-update button { display:inline-flex; align-items:center; justify-content:center; gap:7px; height:28px; padding:0 10px; line-height:1; white-space:nowrap; flex-shrink:0; }
 .about-update progress { width:120px; height:8px; accent-color:var(--accent); }
-.about-update [role="status"] { color:var(--muted); font-size:12px; overflow-wrap:anywhere; }
+.about-update [role="status"] { min-width:0; color:var(--muted); font-size:12px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .about-window { min-height:100vh; align-items:center; justify-content:center; padding:30px 28px; text-align:center; background:var(--bg); color:var(--text); }
 .about-window-icon { width:96px; height:96px; object-fit:contain; margin-bottom:18px; border-radius:8px; }
 .about-window h1 { font-size:26px; margin:0; letter-spacing:0; }
