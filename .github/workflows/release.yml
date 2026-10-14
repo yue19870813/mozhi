@@ -85,7 +85,7 @@ jobs:
           $keyPath = Join-Path $env:RUNNER_TEMP 'tauri-updater.key'
           $encoding = [System.Text.UTF8Encoding]::new($false)
           [System.IO.File]::WriteAllText($keyPath, $env:UPDATER_PRIVATE_KEY, $encoding)
-          Add-Content -Path $env:GITHUB_ENV -Value "TAURI_SIGNING_PRIVATE_KEY_PATH=$keyPath"
+          Add-Content -Path $env:GITHUB_ENV -Value "TAURI_SIGNING_PRIVATE_KEY=$keyPath"
           Write-Host 'Updater signing key was prepared in the runner temp directory.'
       - name: Verify updater signing key is configured (Intel macOS)
         if: runner.os == 'macOS'
