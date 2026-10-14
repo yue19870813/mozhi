@@ -67,10 +67,18 @@ class ReleaseTests(unittest.TestCase):
                 folder = root / 'artifacts' / ('desktop-' + platform) / 'bundle'
                 folder.mkdir(parents=True)
                 (folder / ('墨知' + extension)).write_bytes(platform.encode())
+                updater_extension = {'windows-x64': '.nsis.zip', 'macos-arm64': '.app.tar.gz', 'macos-x64': '.app.tar.gz'}[platform]
+                updater = folder / ('墨知' + updater_extension)
+                updater.write_bytes((platform + '-updater').encode())
+                Path(str(updater) + '.sig').write_text('signature-' + platform, encoding='utf-8')
             output = root / 'output'
             collect(root / 'artifacts', output, '0.9.1')
             lines = (output / 'SHA256SUMS.txt').read_text(encoding="utf-8").splitlines()
-            self.assertEqual(len(lines), 3)
+            self.assertEqual(len(lines), 9)
+            manifest = json.loads((output / 'latest.json').read_text(encoding='utf-8'))
+            self.assertEqual(manifest['version'], '0.9.1')
+            self.assertEqual(set(manifest['platforms']), {'windows-x86_64', 'darwin-aarch64', 'darwin-x86_64'})
+            self.assertTrue(manifest['platforms']['windows-x86_64']['url'].endswith('MoZhi-0.9.1-windows-x86_64.nsis.zip'))
             for line in lines:
                 digest, name = line.split('  ')
                 self.assertEqual(hashlib.sha256((output / name).read_bytes()).hexdigest(), digest)
@@ -83,6 +91,22 @@ class ReleaseTests(unittest.TestCase):
             (root / 'artifacts/desktop-macos-arm64/bundle/墨知.dmg').unlink()
             with self.assertRaises(ValueError):
                 collect(root / 'artifacts', root / 'missing-output', '0.9.1')
+
+    def test_missing_updater_signature_fails_collection(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            for platform, extension in PLATFORMS.items():
+                folder = root / ('desktop-' + platform)
+                folder.mkdir()
+                (folder / ('app' + extension)).write_bytes(b'installer')
+                updater_extension = {'windows-x64': '.nsis.zip', 'macos-arm64': '.app.tar.gz', 'macos-x64': '.app.tar.gz'}[platform]
+                updater = folder / ('app' + updater_extension)
+                updater.write_bytes(b'updater')
+                if platform != 'windows-x64':
+                    Path(str(updater) + '.sig').write_text('signature', encoding='utf-8')
+            with self.assertRaises(ValueError):
+                collect(root, root / 'output', '0.9.1')
+            self.assertFalse((root / 'output').exists())
 
 
 if __name__ == '__main__':

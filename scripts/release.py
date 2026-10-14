@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Prepare consistent release versions or collect the complete installer matrix."""
 import argparse
+from datetime import datetime, timezone
 import hashlib
 import json
 import re
@@ -11,6 +12,11 @@ ROOT = Path(__file__).resolve().parents[1]
 FILES = ['Cargo.toml', 'Cargo.lock', 'package.json', 'package-lock.json',
          'apps/desktop-mobile/package.json', 'apps/desktop-mobile/src-tauri/tauri.conf.json']
 PLATFORMS = {'windows-x64': '.exe', 'macos-arm64': '.dmg', 'macos-x64': '.dmg'}
+UPDATER_PLATFORMS = {
+    'windows-x64': ('windows-x86_64', '.nsis.zip'),
+    'macos-arm64': ('darwin-aarch64', '.app.tar.gz'),
+    'macos-x64': ('darwin-x86_64', '.app.tar.gz'),
+}
 
 
 def validate(version):
@@ -85,6 +91,17 @@ def collect(source, destination, version):
         if len(files) != 1 or files[0].stat().st_size == 0:
             raise ValueError(f'Expected exactly one nonempty {platform} installer, got {len(files)}')
         assets.append((files[0], f'MoZhi-{version}-{platform}{extension}'))
+    updater_assets = []
+    for platform, (target, extension) in UPDATER_PLATFORMS.items():
+        folder = source / ('desktop-' + platform)
+        files = list(folder.rglob('*' + extension))
+        if len(files) != 1 or files[0].stat().st_size == 0:
+            raise ValueError(f'Expected exactly one nonempty {platform} updater package, got {len(files)}')
+        signature = Path(str(files[0]) + '.sig')
+        if not signature.is_file() or not signature.read_text(encoding='utf-8').strip():
+            raise ValueError(f'Missing nonempty updater signature for {files[0].name}')
+        name = f'MoZhi-{version}-{target}{extension}'
+        updater_assets.append((target, files[0], name, signature, name + '.sig'))
     if destination.exists() and any(destination.iterdir()):
         raise ValueError('Release asset directory must be empty')
     destination.mkdir(parents=True, exist_ok=True)
@@ -93,7 +110,25 @@ def collect(source, destination, version):
         content = source_file.read_bytes()
         (destination / name).write_bytes(content)
         hashes.append(f'{hashlib.sha256(content).hexdigest()}  {name}\n')
+    manifest_platforms = {}
+    for target, package, name, signature, signature_name in updater_assets:
+        (destination / name).write_bytes(package.read_bytes())
+        signature_content = signature.read_text(encoding='utf-8').strip()
+        (destination / signature_name).write_text(signature_content + '\n', encoding='utf-8')
+        hashes.append(f'{hashlib.sha256((destination / name).read_bytes()).hexdigest()}  {name}\n')
+        hashes.append(f'{hashlib.sha256((destination / signature_name).read_bytes()).hexdigest()}  {signature_name}\n')
+        manifest_platforms[target] = {
+            'signature': signature_content,
+            'url': f'https://github.com/yue19870813/mozhi/releases/download/v{version}/{name}',
+        }
     (destination / 'SHA256SUMS.txt').write_text(''.join(hashes), encoding='utf-8')
+    manifest = {
+        'version': version,
+        'notes': f'MoZhi {version}',
+        'pub_date': datetime.now(timezone.utc).isoformat().replace('+00:00', 'Z'),
+        'platforms': manifest_platforms,
+    }
+    (destination / 'latest.json').write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
 
 
 def main():

@@ -232,6 +232,10 @@ summary { cursor:pointer; }
 .about-details>div { display:grid; grid-template-columns:minmax(100px,1fr) minmax(0,2fr); gap:16px; padding:16px 0; border-top:1px solid var(--border); }
 .about-details dt { color:var(--muted); overflow-wrap:anywhere; }
 .about-details dd { margin:0; overflow-wrap:anywhere; }
+.about-update { display:flex; align-items:center; flex-wrap:wrap; gap:10px; }
+.about-update button { display:inline-flex; align-items:center; gap:7px; }
+.about-update progress { width:120px; height:8px; accent-color:var(--accent); }
+.about-update [role="status"] { color:var(--muted); font-size:12px; overflow-wrap:anywhere; }
 .about-window { min-height:100vh; align-items:center; justify-content:center; padding:30px 28px; text-align:center; background:var(--bg); color:var(--text); }
 .about-window-icon { width:96px; height:96px; object-fit:contain; margin-bottom:18px; border-radius:8px; }
 .about-window h1 { font-size:26px; margin:0; letter-spacing:0; }
