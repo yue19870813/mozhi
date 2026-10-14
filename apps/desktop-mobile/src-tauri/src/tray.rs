@@ -7,8 +7,9 @@ use std::{
     },
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
+#[cfg(target_os = "macos")]
+use tauri::image::Image;
 use tauri::{
-    image::Image,
     menu::{Menu, MenuItem},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
     AppHandle, Emitter, Manager,
