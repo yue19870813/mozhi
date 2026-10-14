@@ -8,6 +8,7 @@ use std::{
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
 use tauri::{
+    image::Image,
     menu::{Menu, MenuItem},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
     AppHandle, Emitter, Manager,
@@ -184,12 +185,7 @@ pub fn install(app: &AppHandle) -> tauri::Result<()> {
     let show = MenuItem::with_id(app, SHOW_ID, show_label(), true, None::<&str>)?;
     let quit = MenuItem::with_id(app, QUIT_ID, quit_label(), true, None::<&str>)?;
     let menu = Menu::with_items(app, &[&show, &quit])?;
-    let icon = app
-        .default_window_icon()
-        .ok_or(tauri::Error::FailedToReceiveMessage)?
-        .clone();
-    TrayIconBuilder::new()
-        .icon(icon)
+    let builder = TrayIconBuilder::new()
         .tooltip("墨知 · MoZhi")
         .menu(&menu)
         .show_menu_on_left_click(false)
@@ -212,11 +208,24 @@ pub fn install(app: &AppHandle) -> tauri::Result<()> {
             ) {
                 self::show(tray.app_handle());
             }
-        })
-        .build(app)?;
+        });
+    #[cfg(target_os = "macos")]
+    let builder = builder
+        .icon(Image::new(TRAY_ICON_RGBA, 32, 32))
+        .icon_as_template(true);
+    #[cfg(not(target_os = "macos"))]
+    let builder = builder.icon(
+        app.default_window_icon()
+            .ok_or(tauri::Error::FailedToReceiveMessage)?
+            .clone(),
+    );
+    builder.build(app)?;
     app.manage(TrayMenu { show, quit });
     Ok(())
 }
+
+#[cfg(target_os = "macos")]
+const TRAY_ICON_RGBA: &[u8] = include_bytes!("../icons/tray-template.rgba");
 
 pub fn start_sync_timer(app: AppHandle) {
     tauri::async_runtime::spawn(async move {
