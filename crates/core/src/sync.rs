@@ -657,16 +657,93 @@ fn synchronize_inner_guarded(
             let mut proxy = ProxyOptions::new();
             proxy.auto();
             fetch.proxy_options(proxy);
-            remote
-                .fetch(
-                    &[&format!(
-                        "refs/heads/{}:refs/remotes/mozhi-sync/{}",
-                        config.branch, config.branch
-                    )],
-                    Some(&mut fetch),
+            let fetch_result = remote.fetch(
+                &[&format!(
+                    "refs/heads/{}:refs/remotes/mozhi-sync/{}",
+                    config.branch, config.branch
+                )],
+                Some(&mut fetch),
+                None,
+            );
+            let fetch_error = fetch_result.err();
+            let has_tracking_ref = repo
+                .refname_to_id(&format!("refs/remotes/mozhi-sync/{}", config.branch))
+                .is_ok();
+            if let Some(error) = fetch_error {
+                return Err(remote_error(error));
+            }
+            if !has_tracking_ref {
+                let probe = format!(
+                    "refs/mozhi-probe/{:x}-{}",
+                    std::process::id(),
+                    std::time::SystemTime::now()
+                        .duration_since(std::time::UNIX_EPOCH)
+                        .unwrap_or_default()
+                        .as_nanos()
+                );
+                let mut probe_options = FetchOptions::new();
+                probe_options.remote_callbacks(callbacks(config, token));
+                probe_options.follow_redirects(git2::RemoteRedirect::None);
+                let mut proxy = ProxyOptions::new();
+                proxy.auto();
+                probe_options.proxy_options(proxy);
+                let probe_fetch = remote.fetch(
+                    &[&format!("+refs/*:{probe}/*")],
+                    Some(&mut probe_options),
                     None,
-                )
-                .map_err(remote_error)?;
+                );
+                let probed_refs: Vec<_> = repo
+                    .references_glob(&format!("{probe}/*"))?
+                    .filter_map(std::result::Result::ok)
+                    .collect();
+                let is_empty = probe_fetch.is_ok() && probed_refs.is_empty();
+                for mut reference in probed_refs {
+                    reference.delete()?;
+                }
+                if !is_empty {
+                    return Err(if probe_fetch.is_ok() {
+                        Error::Probe("远端已有其他引用，但没有配置的目标分支".into())
+                    } else {
+                        Error::Probe("无法确认远端仓库状态，请检查网络和权限".into())
+                    });
+                }
+                progress("pushing")?;
+                let mut options = PushOptions::new();
+                options.follow_redirects(git2::RemoteRedirect::None);
+                let mut cb = callbacks(config, token);
+                let rejected = std::sync::Arc::new(std::sync::Mutex::new(false));
+                let signal = rejected.clone();
+                cb.push_update_reference(move |_, status| {
+                    if status.is_some() {
+                        *signal.lock().unwrap() = true;
+                    }
+                    Ok(())
+                });
+                options.remote_callbacks(cb);
+                remote
+                    .push(
+                        &[&format!("refs/heads/{0}:refs/heads/{0}", config.branch)],
+                        Some(&mut options),
+                    )
+                    .map_err(remote_error)?;
+                if *rejected.lock().unwrap() {
+                    return Err(Error::Probe("远端拒绝了首次推送，请检查仓库权限".into()));
+                }
+                let state = SyncState {
+                    phase: "ready".into(),
+                    message: "首次同步完成".into(),
+                    commit: repo.head()?.target().map(|id| id.to_string()),
+                    last_success: Some(
+                        std::time::SystemTime::now()
+                            .duration_since(std::time::UNIX_EPOCH)
+                            .unwrap_or_default()
+                            .as_secs(),
+                    ),
+                    conflicts: vec![],
+                };
+                save_state(private, &state)?;
+                return Ok(state);
+            }
             progress("integrating")?;
             let remote_id =
                 repo.refname_to_id(&format!("refs/remotes/mozhi-sync/{}", config.branch))?;
@@ -836,6 +913,67 @@ mod tests {
         let message = remote_error(error).to_string();
         assert!(message.contains("加密密钥交换未完成"));
         assert!(!message.contains("private-detail"));
+    }
+    #[test]
+    fn first_sync_pushes_initial_commit_only_to_an_empty_remote() {
+        let dir = tempfile::tempdir().unwrap();
+        let remote_path = dir.path().join("empty.git");
+        Repository::init_bare(&remote_path).unwrap();
+        let root = dir.path().join("local");
+        fs::create_dir(&root).unwrap();
+        let repo = Repository::init_opts(
+            &root,
+            git2::RepositoryInitOptions::new().initial_head("main"),
+        )
+        .unwrap();
+        commit(&repo, "欢迎使用.md", "# 我的笔记库\n");
+        let private = dir.path().join("private");
+        fs::create_dir(&private).unwrap();
+        let config = Config {
+            protocol: "https".into(),
+            url: remote_path.to_string_lossy().into_owned(),
+            branch: "main".into(),
+            username: "git".into(),
+        };
+        let state = synchronize_inner(&root, &private, &config, "", |_| {}).unwrap();
+        assert_eq!(state.phase, "ready");
+        let remote = Repository::open_bare(remote_path).unwrap();
+        assert!(remote.find_reference("refs/heads/main").is_ok());
+    }
+    #[test]
+    fn first_sync_does_not_treat_a_remote_with_other_refs_as_empty() {
+        let dir = tempfile::tempdir().unwrap();
+        let remote_path = dir.path().join("nonempty.git");
+        Repository::init_bare(&remote_path).unwrap();
+        let seed_path = dir.path().join("seed");
+        fs::create_dir(&seed_path).unwrap();
+        let seed = Repository::init(&seed_path).unwrap();
+        seed.set_head("refs/heads/other").unwrap();
+        commit(&seed, "existing.md", "existing\n");
+        seed.remote("origin", remote_path.to_str().unwrap())
+            .unwrap()
+            .push(&["refs/heads/other:refs/heads/other"], None)
+            .unwrap();
+        let root = dir.path().join("local");
+        fs::create_dir(&root).unwrap();
+        let repo = Repository::init_opts(
+            &root,
+            git2::RepositoryInitOptions::new().initial_head("main"),
+        )
+        .unwrap();
+        commit(&repo, "welcome.md", "welcome\n");
+        let private = dir.path().join("private");
+        fs::create_dir(&private).unwrap();
+        let config = Config {
+            protocol: "https".into(),
+            url: remote_path.to_string_lossy().into_owned(),
+            branch: "main".into(),
+            username: "git".into(),
+        };
+        assert!(synchronize_inner(&root, &private, &config, "", |_| {}).is_err());
+        let remote = Repository::open_bare(remote_path).unwrap();
+        assert!(remote.find_reference("refs/heads/other").is_ok());
+        assert!(remote.find_reference("refs/heads/main").is_err());
     }
     #[test]
     fn clone_uses_environment_proxy() {

@@ -112,6 +112,50 @@ mod macos {
         }
     }
 
+    pub(super) fn generate() -> ApiResult<(String, AgentStatus)> {
+        let home = std::env::var_os("HOME").ok_or_else(|| failure("无法定位用户目录"))?;
+        let directory = std::path::PathBuf::from(home).join(".ssh");
+        fs::create_dir_all(&directory).map_err(|_| failure("无法创建用户 SSH 目录"))?;
+        fs::set_permissions(&directory, fs::Permissions::from_mode(0o700))
+            .map_err(|_| failure("无法设置 SSH 目录权限"))?;
+        let path = directory.join("id_ed25519_mozhi");
+        let public = directory.join("id_ed25519_mozhi.pub");
+        if path.exists() || public.exists() {
+            return Err(failure(
+                "目标 SSH 密钥已存在；为避免覆盖，请先备份或手动移走现有密钥",
+            ));
+        }
+        let helper = tempfile::tempdir().map_err(|_| failure("无法创建系统密码对话框"))?;
+        let askpass = helper.path().join("askpass");
+        fs::write(&askpass, ASKPASS).map_err(|_| failure("无法创建系统密码对话框"))?;
+        fs::set_permissions(&askpass, fs::Permissions::from_mode(0o700))
+            .map_err(|_| failure("无法创建系统密码对话框"))?;
+        let output = Command::new("/usr/bin/ssh-keygen")
+            .args(["-q", "-t", "ed25519", "-C", "mozhi", "-f"])
+            .arg(&path)
+            .stdin(Stdio::null())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .env("SSH_ASKPASS", &askpass)
+            .env("SSH_ASKPASS_REQUIRE", "force")
+            .env("DISPLAY", "mozhi")
+            .status()
+            .map_err(|_| failure("无法启动系统 ssh-keygen"))?;
+        if !output.success() {
+            return Err(failure("密钥生成已取消或失败；未覆盖现有密钥"));
+        }
+        fs::set_permissions(&path, fs::Permissions::from_mode(0o600))
+            .map_err(|_| failure("无法设置私钥权限"))?;
+        let text = fs::read_to_string(&public).map_err(|_| failure("无法读取生成的公钥"))?;
+        let loaded = add_command(&path, &askpass)
+            .output()
+            .map_err(|_| failure("无法启动系统 ssh-add"))?;
+        if !loaded.status.success() {
+            return Err(failure("密钥已生成，但未能加载到系统 Agent；可重试加载"));
+        }
+        Ok((text.trim().to_owned(), status()?))
+    }
+
     #[cfg(test)]
     mod tests {
         use super::*;
@@ -250,6 +294,41 @@ mod windows {
         .map(|key_count| Some(AgentStatus { key_count }))
         .map_err(|message| failure(&message))
     }
+
+    pub(super) fn generate() -> ApiResult<(String, AgentStatus)> {
+        mozhi_windows::ssh_agent::generate_key(crate::language::text("zh-CN", "en", "ja", "zh-TW"))
+            .map(|(public_key, key_count)| (public_key, AgentStatus { key_count }))
+            .map_err(|message| failure(&message))
+    }
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GeneratedKey {
+    public_key: String,
+    key_count: usize,
+}
+
+#[tauri::command]
+pub async fn generate_ssh_key() -> ApiResult<GeneratedKey> {
+    #[cfg(target_os = "macos")]
+    return blocking(|| {
+        macos::generate().map(|(public_key, status)| GeneratedKey {
+            public_key,
+            key_count: status.key_count,
+        })
+    })
+    .await;
+    #[cfg(windows)]
+    return blocking(|| {
+        windows::generate().map(|(public_key, status)| GeneratedKey {
+            public_key,
+            key_count: status.key_count,
+        })
+    })
+    .await;
+    #[cfg(not(any(target_os = "macos", windows)))]
+    Err(failure("当前平台暂不支持生成 SSH 密钥"))
 }
 
 #[tauri::command]

@@ -297,6 +297,103 @@ async fn open_vault(
     })
     .await
 }
+
+#[tauri::command]
+async fn create_vault(
+    app: tauri::AppHandle,
+    state: State<'_, AppState>,
+    name: String,
+) -> ApiResult<Option<OpenedVault>> {
+    let state = state.inner().clone();
+    blocking(move || {
+        let name = name.trim();
+        let first_component = name
+            .split('.')
+            .next()
+            .unwrap_or_default()
+            .to_ascii_uppercase();
+        let reserved_name = matches!(first_component.as_str(), "CON" | "PRN" | "AUX" | "NUL")
+            || ["COM", "LPT"].iter().any(|prefix| {
+                first_component.strip_prefix(prefix).is_some_and(|suffix| {
+                    suffix.len() == 1 && matches!(suffix.as_bytes()[0], b'1'..=b'9')
+                })
+            });
+        if name.is_empty()
+            || name == "."
+            || name == ".."
+            || name.chars().any(|character| {
+                matches!(
+                    character,
+                    '/' | '\\' | ':' | '<' | '>' | '"' | '|' | '?' | '*'
+                )
+            })
+            || name.chars().any(char::is_control)
+            || name
+                .chars()
+                .last()
+                .is_some_and(|character| matches!(character, '.' | ' '))
+            || reserved_name
+        {
+            return Err(failure("请输入有效的笔记库名称"));
+        }
+        let Some(parent) = app
+            .dialog()
+            .file()
+            .set_title(language::text(
+                "选择新笔记库的父目录",
+                "Choose a parent folder for the new vault",
+                "新しいノート庫の親フォルダーを選択",
+                "選擇新筆記庫的父目錄",
+            ))
+            .blocking_pick_folder()
+        else {
+            return Ok(None);
+        };
+        let parent = parent.into_path().map_err(failure)?;
+        let parent = parent.canonicalize().map_err(failure)?;
+        let root = parent.join(name);
+        if fs::symlink_metadata(&root).is_ok() {
+            return Err(failure("目标目录已存在，请选择其他名称或父目录"));
+        }
+        fs::create_dir(&root).map_err(failure)?;
+        let result = (|| -> ApiResult<()> {
+            let welcome = root.join("欢迎使用.md");
+            if welcome.exists() {
+                return Err(failure("欢迎笔记已存在，未覆盖任何内容"));
+            }
+            vault::atomic_write(
+                &welcome,
+                "# 欢迎使用墨知\n\n这是你的个人笔记库。你可以从这里开始记录想法。\n".as_bytes(),
+            )?;
+            let repo = git2::Repository::init_opts(
+                &root,
+                git2::RepositoryInitOptions::new().initial_head("main"),
+            )
+            .map_err(failure)?;
+            let mut index = repo.index().map_err(failure)?;
+            index
+                .add_path(std::path::Path::new("欢迎使用.md"))
+                .map_err(failure)?;
+            index.write().map_err(failure)?;
+            let tree_id = index.write_tree().map_err(failure)?;
+            let tree = repo.find_tree(tree_id).map_err(failure)?;
+            let signature = git2::Signature::now("MoZhi", "mozhi@localhost").map_err(failure)?;
+            repo.commit(
+                Some("HEAD"),
+                &signature,
+                &signature,
+                "Initialize personal vault",
+                &tree,
+                &[],
+            )
+            .map_err(failure)?;
+            Ok(())
+        })();
+        result?;
+        activate(&app, &state, root).map(Some)
+    })
+    .await
+}
 #[tauri::command]
 async fn read_note(state: State<'_, AppState>, vault_id: String, path: String) -> ApiResult<Note> {
     let state = state.inner().clone();
@@ -434,6 +531,7 @@ pub fn run() {
             workspace::set_credentials,
             workspace::clone_vault,
             ssh_agent::select_ssh_key,
+            ssh_agent::generate_ssh_key,
             ssh_agent::check_ssh_agent,
             tray::hide_to_tray,
             tray::tray_sync_status,
@@ -442,6 +540,7 @@ pub fn run() {
             language::system_locale,
             language::ui_language,
             open_vault,
+            create_vault,
             vault_history::vault_catalog,
             read_note,
             read_draft,

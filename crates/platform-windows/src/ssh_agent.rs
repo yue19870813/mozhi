@@ -22,6 +22,7 @@ use windows_sys::Win32::{
 
 const MODE: &str = "MOZHI_OPENSSH_ASKPASS";
 const MODE_VALUE: &str = "native-v1";
+const KEYGEN_MODE: &str = "MOZHI_OPENSSH_KEYGEN";
 const SOCKET: &str = r"\\.\pipe\openssh-ssh-agent";
 const UNAVAILABLE: &str = "无法连接 Windows OpenSSH Agent，请检查 ssh-agent 服务";
 
@@ -224,6 +225,48 @@ pub fn add_key(path: &Path, language: &str) -> ApiResult<usize> {
     }
 }
 
+pub fn generate_key(language: &str) -> ApiResult<(String, usize)> {
+    preflight()?;
+    let profile = std::env::var_os("USERPROFILE").ok_or_else(|| failure("无法定位用户目录"))?;
+    let directory = PathBuf::from(profile).join(".ssh");
+    fs::create_dir_all(&directory).map_err(|_| failure("无法创建用户 SSH 目录"))?;
+    let path = directory.join("id_ed25519_mozhi");
+    let public = path.with_extension("pub");
+    if path.exists() || public.exists() {
+        return Err(failure(
+            "目标 SSH 密钥已存在；为避免覆盖，请先备份或手动移走现有密钥",
+        ));
+    }
+    let executable = system_ssh_add()?;
+    let keygen = executable.with_file_name("ssh-keygen.exe");
+    if !keygen.is_file() {
+        return Err(failure("未找到 Windows OpenSSH ssh-keygen"));
+    }
+    let helper = std::env::current_exe().map_err(|_| failure("无法定位原生密码对话框"))?;
+    let result = Command::new(keygen)
+        .args(["-q", "-t", "ed25519", "-C", "mozhi"])
+        .arg("-f")
+        .arg(&path)
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .creation_flags(CREATE_NO_WINDOW)
+        .env("SSH_ASKPASS", &helper)
+        .env("SSH_ASKPASS_REQUIRE", "force")
+        .env("DISPLAY", "mozhi")
+        .env(MODE, MODE_VALUE)
+        .env(KEYGEN_MODE, "1")
+        .env("MOZHI_OPENSSH_LANGUAGE", validated_language(language))
+        .status()
+        .map_err(|_| failure("无法启动系统 ssh-keygen"))?;
+    if !result.success() {
+        return Err(failure("密钥生成已取消或失败；未覆盖现有密钥"));
+    }
+    let public_key = fs::read_to_string(&public).map_err(|_| failure("无法读取生成的公钥"))?;
+    let key_count = add_key(&path, language)?;
+    Ok((public_key.trim().to_owned(), key_count))
+}
+
 fn is_dispatch(mode: Option<&OsStr>) -> bool {
     mode == Some(OsStr::new(MODE_VALUE))
 }
@@ -268,7 +311,16 @@ fn askpass() -> ApiResult<()> {
         return Err(failure("密码输出通道不可用"));
     }
     let language = std::env::var("MOZHI_OPENSSH_LANGUAGE").unwrap_or_default();
-    let (caption, instructions) = prompt_text(&language);
+    let (caption, instructions) = if std::env::var_os(KEYGEN_MODE).is_some() {
+        match validated_language(&language) {
+            "en" => ("MoZhi · Create SSH key", "Choose a passphrase for the new key. Enter the same passphrase again to confirm. It is never saved."),
+            "ja" => ("墨知 · SSH 鍵を作成", "新しい鍵のパスフレーズを入力してください。確認のため同じものを再入力します。保存されません。"),
+            "zh-TW" => ("墨知 · 建立 SSH 金鑰", "請為新金鑰設定密碼，並再次輸入確認。密碼不會保存。"),
+            _ => ("墨知 · 生成 SSH 密钥", "请为新密钥设置密码，并再次输入确认。密码不会保存。"),
+        }
+    } else {
+        prompt_text(&language)
+    };
     let secret = super::credentials::prompt_secret(
         "app.mozhi.notes.ssh.passphrase",
         "SSH",

@@ -44,6 +44,8 @@ export const api = {
     return native ? invoke('open_demo') : { id: 'demo', name: t("墨知示例笔记"), demo: true, entries: [...samples].map(([path, content]) => ({ path, bytes: new TextEncoder().encode(content).length })), skipped: [] };
   },
   async openVault(): Promise<Vault | null> { return native ? invoke('open_vault') : null; },
+  async createVault(name: string): Promise<Vault | null> { return native ? invoke('create_vault', { name }) : null; },
+  async generateSshKey(): Promise<{ publicKey: string; keyCount: number }> { return invoke('generate_ssh_key'); },
   async vaultCatalog(): Promise<VaultHistoryEntry[]> { return native ? invoke('vault_catalog',{request:{action:'list'}}) : [{id:'demo',name:t("墨知示例笔记"),path:'',demo:true,available:true}]; },
   async openKnownVault(id:string): Promise<Vault> { return native ? invoke('vault_catalog',{request:{action:'open',id}}) : api.openDemo(); },
   async forgetVault(id:string): Promise<void> { if(native)await invoke('vault_catalog',{request:{action:'forget',id}}); },

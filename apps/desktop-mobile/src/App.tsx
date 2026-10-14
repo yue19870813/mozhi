@@ -37,6 +37,7 @@ import { RecoveryPanel } from "./RecoveryPanel";
 import { VaultSettings } from "./VaultSettings";
 import { AppShell, Icon, useSidebar } from "./AppShell";
 import { HomePage } from "./HomePage";
+import { CreateSyncWizard } from "./CreateSyncWizard";
 import { GettingStarted } from "./GettingStarted";
 import { AiAssistant, emptyAiSession, type AiSession } from "./AiAssistant";
 import { McpSettings } from "./McpSettings";
@@ -95,6 +96,7 @@ export default function App() {
     [],
   );
   const [vault, setVault] = useState<Vault | null>(null);
+  const [createSyncOpen, setCreateSyncOpen] = useState(false);
   const [module, setModule] = useState<Module>("home"),
     [mode, setMode] = useState(readEditorMode);
   const [homePage, setHomePage] = useState<HomeSection>("overview"),
@@ -1136,6 +1138,7 @@ export default function App() {
           onAll={() => setHomePage("recent")}
           onNew={newNote}
           onBrowse={() => void switchModule("notes")}
+          onCreateAndSync={() => setCreateSyncOpen(true)}
         />
       </div>
       <NoteWorkspace
@@ -1345,6 +1348,7 @@ export default function App() {
           {vault?.name}
         </p>
         <div className="workspace-toolbar">
+          <button disabled={busy || composing || syncing} onClick={() => setCreateSyncOpen(true)}>{t("创建并同步个人笔记库")}</button>
           <button
             disabled={busy || composing || !native || syncing}
             onClick={() => void openVault()}
@@ -1368,6 +1372,7 @@ export default function App() {
             currentId={vault?.id}
             disabled={busy || composing || syncing}
             onOpen={openKnownVault}
+          onCreateAndSync={() => setCreateSyncOpen(true)}
           />
         )}
       </section>
@@ -1377,6 +1382,7 @@ export default function App() {
           onSyncSettings={() => void selectSettings("sync")}
         />
       )}
+      {createSyncOpen && <CreateSyncWizard onClose={() => setCreateSyncOpen(false)} onCreated={async opened => { await adopt(opened); setModule("home"); }} />}
       <section className="help-page" hidden={tab !== "shortcuts"}>
         <h1>{t("快捷键")}</h1>
         <dl className="shortcut-list">

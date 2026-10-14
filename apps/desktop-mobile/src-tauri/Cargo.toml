@@ -17,6 +17,7 @@ tauri-plugin-dialog = "2"
 serde.workspace = true
 serde_json.workspace = true
 mozhi-core = { path = "../../../crates/core" }
+git2 = "0.20"
 
 mozhi-mcp = { path = "../../../crates/mcp" }
 tokio-util = "0.7"

@@ -214,6 +214,12 @@ summary { cursor:pointer; }
 .vault-history { max-width:900px; margin-top:32px; }
 .setting-row select { max-width:100%; padding:8px 12px; background:var(--panel); color:var(--text); border:1px solid var(--border); border-radius:6px; }
 .workspace-toolbar button,.vault-history-actions button { max-width:100%; overflow-wrap:anywhere; }
+.create-sync-wizard { width:min(560px,100%); }
+.wizard-header { display:flex; align-items:flex-start; justify-content:space-between; gap:16px; }
+.wizard-header h2 { margin-bottom:4px; }
+.wizard-header p { margin-top:0; }
+.create-sync-wizard textarea { width:100%; resize:vertical; padding:10px; background:var(--bg); color:var(--text); border:1px solid var(--border); border-radius:6px; font:12px/1.5 monospace; overflow-wrap:anywhere; }
+.home-vault-action { margin-top:0; }
 .setting-row { flex-wrap:wrap; gap:12px; }
 .about-brand { display:flex; align-items:center; gap:20px; margin:32px 0 28px; }
 .about-brand img { width:64px; height:64px; flex-shrink:0; object-fit:contain; }

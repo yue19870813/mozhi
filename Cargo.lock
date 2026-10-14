@@ -2639,6 +2639,7 @@ dependencies = [
  "fastembed",
  "fs2",
  "futures-util",
+ "git2",
  "mozhi-core",
  "mozhi-mcp",
  "mozhi-windows",

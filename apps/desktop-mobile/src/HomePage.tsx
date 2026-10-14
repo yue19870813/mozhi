@@ -1,17 +1,18 @@
 import { t, useLanguage } from './i18n';
 import { relativeTime, type RecentNote } from './recent';
 import { ArrowUpRight, BookOpen, Pin } from 'lucide-react';
-export function HomePage({ welcome = false, pinned, onTogglePin, recent, all, busy, canCreate, onOpen, onAll, onNew, onBrowse }: {
+export function HomePage({ welcome = false, pinned, onTogglePin, recent, all, busy, canCreate, onOpen, onAll, onNew, onBrowse, onCreateAndSync }: {
   welcome?: boolean;
   pinned: { path: string; title: string }[]; onTogglePin: (path: string) => void;
   recent: RecentNote[]; all: boolean; busy: boolean; canCreate: boolean;
-  onOpen: (path: string) => void; onAll: () => void; onNew: () => void; onBrowse: () => void;
+  onOpen: (path: string) => void; onAll: () => void; onNew: () => void; onBrowse: () => void; onCreateAndSync?: () => void;
 }) {
   useLanguage();
   const showWelcome = welcome && !all;
   const visiblePinned = showWelcome ? pinned.filter(note => note.path !== '欢迎使用.md') : pinned;
   return <section className="home-page">
     <header><h1>{all ? t("最近打开") : t("首页")}</h1><p className="subtle">{all ? t("按最近访问时间排列") : t("继续上一次的思考")}</p></header>
+    {!all && onCreateAndSync && <div className="workspace-toolbar home-vault-action"><button disabled={busy} onClick={onCreateAndSync}>{t("创建并同步个人笔记库")}</button></div>}
     {showWelcome && <>
       {!recent.length && <div className="home-empty home-welcome-empty"><span aria-hidden="true">✎</span><h2>{t("从一篇笔记开始")}</h2><p className="subtle">{t("打开过的笔记会出现在这里，随时接着阅读或书写。")}</p><div className="workspace-toolbar"><button disabled={busy || !canCreate} onClick={onNew}>{t("＋ 新建笔记")}</button><button disabled={busy} onClick={onBrowse}>{t("浏览笔记")}</button></div></div>}
       <button className="home-welcome-card" disabled={busy} onClick={() => onOpen('欢迎使用.md')} aria-label={t("打开欢迎使用指南")}>
