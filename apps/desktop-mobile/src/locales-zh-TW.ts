@@ -1,5 +1,6 @@
 // Traditional Chinese UI text. User content is never converted.
 export const traditionalTranslations: Record<string, string> = {
+  '无法关闭到托盘，请检查保存状态': '無法關閉到系統匣，請檢查保存狀態',
   '大纲': '大綱',
   '笔记侧栏': '筆記側欄',
   '关闭笔记侧栏': '關閉筆記側欄',

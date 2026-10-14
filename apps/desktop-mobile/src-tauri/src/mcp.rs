@@ -301,6 +301,7 @@ impl Backend for Desktop {
                 _ => safe_error(e),
             })?;
             if name_for_event == "create_note" {
+                crate::tray::mark_saved(&self.0, &s.vault_id);
                 let _ = self
                     .0
                     .emit("mcp_note_created", json!({"vaultId":s.vault_id}));

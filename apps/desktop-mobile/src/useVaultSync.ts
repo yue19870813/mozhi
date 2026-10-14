@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState, type RefObject } from "react";
+import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 import { api, errorText, native, workspace, type SyncConfig } from "./api";
 import {
   AutoSyncSchedule,
@@ -20,6 +22,7 @@ type Options = {
   syncingRef: RefObject<boolean>;
   session: RefObject<DocumentSession | null>;
   schedule: RefObject<AutoSyncSchedule>;
+  trayHidden: RefObject<boolean>;
   flush: () => Promise<void>;
   reload: () => Promise<void>;
   setBusy: (value: boolean) => void;
@@ -38,6 +41,7 @@ export function useVaultSync(options: Options) {
     syncingRef,
     session,
     schedule: autoSchedule,
+    trayHidden,
     flush,
     reload,
     setBusy,
@@ -49,6 +53,8 @@ export function useVaultSync(options: Options) {
   const [syncRevision, setSyncRevision] = useState(0);
   const [syncing, setSyncing] = useState(false);
   const [sshAgentError, setSshAgentError] = useState("");
+  const handledTrayRevision = useRef(0);
+  const trayRunning = useRef(false);
 
   function configureAutoSync(settings: AutoSyncSettings) {
     if (!vaultId) return;
@@ -164,11 +170,66 @@ export function useVaultSync(options: Options) {
   }
   useEffect(() => {
     if (!vaultId) return;
+    handledTrayRevision.current = 0;
     setAutoSync(readAutoSync(localStorage, vaultId));
     autoSchedule.current = new AutoSyncSchedule(Date.now());
     setAutoPaused(false);
     setSshAgentError("");
   }, [vaultId, autoSchedule]);
+  const checkTraySync = useRef<() => Promise<void>>(async () => {});
+  checkTraySync.current = async () => {
+    if (!native || !vaultId) return;
+    const status = await invoke<{
+      vaultId: string; running: boolean; revision: number;
+      lastSyncAt: number; lastError: string | null; completed: boolean;
+    } | null>("tray_sync_status");
+    if (!status || status.vaultId !== vaultId) return;
+    if (status.running) {
+      trayRunning.current = true;
+      syncingRef.current = true;
+      setSyncing(true);
+      return;
+    }
+    if (trayRunning.current) {
+      trayRunning.current = false;
+      syncingRef.current = false;
+      setSyncing(false);
+    }
+    if (!status.completed || status.revision <= handledTrayRevision.current) return;
+    handledTrayRevision.current = status.revision;
+    setSyncRevision(value => value + 1);
+    if (status.lastError) {
+      autoSchedule.current.paused = true;
+      setAutoPaused(true);
+      setError(status.lastError);
+      setStatus(t("同步未完成"));
+    } else {
+      autoSchedule.current.succeeded(status.lastSyncAt);
+      setAutoPaused(false);
+      setStatus(t("同步完成"));
+      if (!session.current?.dirty) await refreshAfterSync();
+    }
+  };
+  useEffect(() => {
+    if (!native) return;
+    let disposed = false;
+    const stops: (() => void)[] = [];
+    const keep = (stop: () => void) => { if (disposed) stop(); else stops.push(stop); };
+    const check = () => { void checkTraySync.current().catch(error => setError(errorText(error))); };
+    const focus = () => {
+      void checkTraySync.current()
+        .catch(error => setError(errorText(error)))
+        .finally(() => { trayHidden.current = false; });
+    };
+    listen("tray_sync_started", check).then(keep);
+    listen("tray_sync_finished", check).then(keep);
+    window.addEventListener("focus", focus);
+    return () => {
+      disposed = true;
+      stops.forEach(stop => stop());
+      window.removeEventListener("focus", focus);
+    };
+  }, []);
   const automaticTick = useRef(() => {});
   automaticTick.current = () => {
     const unavailable =
@@ -178,6 +239,7 @@ export function useVaultSync(options: Options) {
       syncingRef.current ||
       operation.current ||
       isComposing.current ||
+      trayHidden.current ||
       document.hidden ||
       !!session.current?.dirty;
     if (autoSchedule.current.due(autoSync, Date.now(), unavailable))

@@ -106,7 +106,11 @@ mod sync_tests {
         reader.join().unwrap();
     }
 }
-fn background_sync(app: &tauri::AppHandle, state: &AppState, vault_id: &str) -> ApiResult<Value> {
+pub(crate) fn background_sync(
+    app: &tauri::AppHandle,
+    state: &AppState,
+    vault_id: &str,
+) -> ApiResult<Value> {
     let (root, private, config, token) = with_active(state, |active| {
         identity(active, vault_id)?;
         let config = config(active)?;

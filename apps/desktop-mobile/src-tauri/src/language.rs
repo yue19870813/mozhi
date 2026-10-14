@@ -11,6 +11,8 @@ pub fn system_locale() -> String {
 pub fn ui_language(app: tauri::AppHandle, language: String) -> Result<(), String> {
     set_language(language)?;
     crate::about::refresh_language(&app);
+    #[cfg(not(mobile))]
+    crate::tray::refresh_language(&app);
     Ok(())
 }
 fn set_language(language: String) -> Result<(), String> {

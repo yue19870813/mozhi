@@ -117,6 +117,7 @@ export default function App() {
     if (id) aiSessions.current.set(id, value);
   }, []);
   const autoSchedule = useRef(new AutoSyncSchedule(Date.now()));
+  const trayHidden = useRef(false);
   const [pinned, setPinned] = useState<string[]>([]),
     pinnedRef = useRef<string[]>([]);
   function storePinned(paths: string[], id = vaultRef.current?.id) {
@@ -392,6 +393,7 @@ export default function App() {
     syncingRef,
     session,
     schedule: autoSchedule,
+    trayHidden,
     flush,
     reload,
     setBusy,
@@ -423,6 +425,10 @@ export default function App() {
     syncingRef,
     vaultRef,
     autoSchedule,
+    trayHidden,
+    autoSync,
+    autoPaused,
+    syncBlocked: syncBlocked || !!modal || history !== null || recovery !== null,
     flush,
     updateKnowledge,
     reload,

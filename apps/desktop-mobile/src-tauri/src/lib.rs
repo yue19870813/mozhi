@@ -11,6 +11,11 @@ mod mcp;
 mod mcp_credentials;
 mod semantic;
 mod ssh_agent;
+#[cfg(not(mobile))]
+mod tray;
+#[cfg(mobile)]
+#[path = "tray_mobile.rs"]
+mod tray;
 mod vault_history;
 mod watcher;
 mod workspace;
@@ -402,8 +407,11 @@ pub fn run() {
         .manage(ai::AiState::default())
         .manage(mcp::McpState::default())
         .manage(semantic::SemanticState::default())
+        .manage(tray::TraySyncState::default())
         .setup(|app| {
             about::install(app.handle())?;
+            tray::install(app.handle())?;
+            tray::start_sync_timer(app.handle().clone());
             semantic::start(app.handle().clone());
             mcp::restore(app.handle().clone());
             Ok(())
@@ -427,6 +435,9 @@ pub fn run() {
             workspace::clone_vault,
             ssh_agent::select_ssh_key,
             ssh_agent::check_ssh_agent,
+            tray::hide_to_tray,
+            tray::tray_sync_status,
+            tray::quit_app,
             open_demo,
             language::system_locale,
             language::ui_language,
@@ -439,12 +450,26 @@ pub fn run() {
             search_notes,
             run_probes
         ])
+        .on_window_event(|window, event| {
+            if window.label() == "main" {
+                if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                    api.prevent_close();
+                }
+            }
+        })
         .build(tauri::generate_context!())
         .expect("无法启动墨知")
-        .run(|app, event| {
-            if matches!(event, tauri::RunEvent::Exit) {
+        .run(|app, event| match event {
+            tauri::RunEvent::ExitRequested {
+                code: None, api, ..
+            } => {
+                api.prevent_exit();
+                tray::request_quit(app);
+            }
+            tauri::RunEvent::Exit => {
                 app.state::<mcp::McpState>().shutdown();
                 app.state::<ai::AiState>().cancel_all();
             }
+            _ => {}
         });
 }

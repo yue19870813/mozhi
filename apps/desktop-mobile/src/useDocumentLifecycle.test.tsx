@@ -5,10 +5,11 @@ import { beforeEach, afterEach, expect, it, vi } from "vitest";
 import { useDocumentLifecycle } from "./useDocumentLifecycle";
 import { DocumentSession } from "./session";
 import { AutoSyncSchedule } from "./auto-sync";
+import type { Vault } from "./api";
 
 const bridge = vi.hoisted(() => ({
   draft: vi.fn().mockResolvedValue(undefined),
-  destroy: vi.fn().mockResolvedValue(undefined),
+  invoke: vi.fn().mockResolvedValue(undefined),
   close: vi.fn(),
   listen: vi.fn(),
   unlisten: vi.fn(),
@@ -21,9 +22,9 @@ vi.mock("./api", () => ({
 vi.mock("@tauri-apps/api/window", () => ({
   getCurrentWindow: () => ({
     onCloseRequested: bridge.close,
-    destroy: bridge.destroy,
   }),
 }));
+vi.mock("@tauri-apps/api/core", () => ({ invoke: bridge.invoke }));
 vi.mock("@tauri-apps/api/event", () => ({ listen: bridge.listen }));
 
 let root: Root, host: HTMLDivElement;
@@ -42,7 +43,7 @@ afterEach(() => {
   host.remove();
   vi.useRealTimers();
 });
-function harness() {
+function harness(vaultId?: string) {
   const session = {
     current: new DocumentSession(
       { path: "synthetic.md", content: "old", contentHash: "hash" },
@@ -66,8 +67,12 @@ function harness() {
       operation,
       isComposing,
       syncingRef,
-      vaultRef: { current: null },
+      vaultRef: { current: vaultId ? { id: vaultId, name: vaultId, demo: false, entries: [], skipped: [] } satisfies Vault : null },
       autoSchedule: { current: new AutoSyncSchedule(Date.now()) },
+      trayHidden: { current: false },
+      autoSync: { enabled: true, onOpen: true, afterSave: true, idleSeconds: 30, intervalMinutes: 5 },
+      autoPaused: false,
+      syncBlocked: false,
       flush,
       updateKnowledge: vi.fn(),
       reload: vi.fn(),
@@ -99,7 +104,7 @@ it("writes a draft before automatic save and clears pending timers on unmount", 
   await vi.advanceTimersByTimeAsync(1000);
   expect(h.flush).toHaveBeenCalledOnce();
 });
-it("blocks close during sync or composition and never destroys the window if saving fails", async () => {
+it("blocks hiding during sync, composition or a failed save", async () => {
   const h = harness();
   await act(async () => {
     await Promise.resolve();
@@ -117,10 +122,24 @@ it("blocks close during sync or composition and never destroys the window if sav
   h.isComposing.current = false;
   h.flush.mockRejectedValueOnce(new Error("disk conflict"));
   await close(event);
-  expect(bridge.destroy).not.toHaveBeenCalled();
+  expect(bridge.invoke).not.toHaveBeenCalled();
   expect(h.error).toHaveBeenCalled();
   await close(event);
-  expect(bridge.destroy).toHaveBeenCalledOnce();
+  expect(bridge.invoke).toHaveBeenCalledWith("hide_to_tray", { schedule: null });
+});
+it("passes the current vault schedule to the native tray and quits only after saving", async () => {
+  const h = harness("vault-a");
+  await act(async () => { await Promise.resolve(); });
+  const close = bridge.close.mock.calls[0][0];
+  await close({ preventDefault: vi.fn() });
+  expect(bridge.invoke).toHaveBeenCalledWith("hide_to_tray", { schedule: expect.objectContaining({
+    vaultId: "vault-a", enabled: true, idleSeconds: 30, intervalMinutes: 5,
+  }) });
+  const quit = bridge.listen.mock.calls.find(([name]) => name === "tray_quit_requested")?.[1];
+  expect(quit).toBeTypeOf("function");
+  await act(async () => { quit(); await Promise.resolve(); });
+  expect(h.flush).toHaveBeenCalledTimes(2);
+  expect(bridge.invoke).toHaveBeenCalledWith("quit_app");
 });
 it("disposes native listeners even if registration finishes after unmount", async () => {
   let finish!: (stop: () => void) => void;
@@ -135,8 +154,8 @@ it("disposes native listeners even if registration finishes after unmount", asyn
   });
   act(() => root.unmount());
   root = createRoot(host);
-  expect(bridge.unlisten).toHaveBeenCalledTimes(2);
+  expect(bridge.unlisten).toHaveBeenCalledTimes(3);
   finish(bridge.unlisten);
   await Promise.resolve();
-  expect(bridge.unlisten).toHaveBeenCalledTimes(3);
+  expect(bridge.unlisten).toHaveBeenCalledTimes(4);
 });

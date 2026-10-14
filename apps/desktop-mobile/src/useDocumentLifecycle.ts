@@ -1,10 +1,11 @@
-import { useEffect, type RefObject } from "react";
+import { useEffect, useRef, type RefObject } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { api, native, errorText, type Vault } from "./api";
 import { t } from "./i18n";
 import type { DocumentSession } from "./session";
-import type { AutoSyncSchedule } from "./auto-sync";
+import type { AutoSyncSchedule, AutoSyncSettings } from "./auto-sync";
 type Options = {
   content: string;
   composing: boolean;
@@ -17,6 +18,10 @@ type Options = {
   syncingRef: RefObject<boolean>;
   vaultRef: RefObject<Vault | null>;
   autoSchedule: RefObject<AutoSyncSchedule>;
+  trayHidden: RefObject<boolean>;
+  autoSync: AutoSyncSettings;
+  autoPaused: boolean;
+  syncBlocked: boolean;
   flush: () => Promise<void>;
   updateKnowledge: () => Promise<void>;
   reload: () => Promise<void>;
@@ -39,6 +44,10 @@ export function useDocumentLifecycle({
   syncingRef,
   vaultRef,
   autoSchedule,
+  trayHidden,
+  autoSync,
+  autoPaused,
+  syncBlocked,
   flush,
   updateKnowledge,
   reload,
@@ -48,6 +57,8 @@ export function useDocumentLifecycle({
   setError,
   setStatus,
 }: Options) {
+  const syncSettings = useRef({ autoSync, autoPaused, syncBlocked, busy });
+  syncSettings.current = { autoSync, autoPaused, syncBlocked, busy };
   useEffect(() => {
     if (!session.current?.dirty || composing || busy) return;
     const current = session.current;
@@ -75,18 +86,37 @@ export function useDocumentLifecycle({
     getCurrentWindow()
       .onCloseRequested(async (event) => {
         event.preventDefault();
-        if (syncingRef.current || operation.current || isComposing.current) {
+        if (syncingRef.current || operation.current || isComposing.current || syncSettings.current.busy) {
           setError(t("请等待同步、当前操作或中文组合输入结束后再关闭"));
           return;
         }
         try {
           await flush();
-          await getCurrentWindow().destroy();
+          const vaultId = vaultRef.current?.id;
+          const { autoSync, autoPaused, syncBlocked } = syncSettings.current;
+          trayHidden.current = true;
+          await invoke("hide_to_tray", { schedule: vaultId ? {
+            vaultId, ...autoSync, opened: autoSchedule.current.opened,
+            savedAt: autoSchedule.current.savedAt,
+            lastSyncAt: autoSchedule.current.lastSyncAt,
+            paused: autoPaused || autoSchedule.current.paused,
+            blocked: syncBlocked,
+          } : null });
         } catch {
-          setError(t("保存未完成，请先协调磁盘版本与恢复草稿"));
+          trayHidden.current = false;
+          setError(t("无法关闭到托盘，请检查保存状态"));
         }
       })
       .then(keep);
+    listen("tray_quit_requested", () => {
+      if (syncingRef.current || operation.current || isComposing.current || syncSettings.current.busy) {
+        setError(t("请等待同步、当前操作或中文组合输入结束后再关闭"));
+        return;
+      }
+      void flush().then(() => invoke("quit_app")).catch(() => {
+        setError(t("保存未完成，请先协调磁盘版本与恢复草稿"));
+      });
+    }).then(keep);
     listen<{ vaultId: string }>("mcp_note_created", (event) => {
       if (event.payload.vaultId === vaultRef.current?.id) {
         autoSchedule.current.savedAt = Date.now();

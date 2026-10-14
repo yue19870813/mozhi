@@ -1,5 +1,6 @@
 // Source text remains the Simplified Chinese fallback. Note content is never translated.
 export const translations: Record<string, readonly [string, string]> = {
+  '无法关闭到托盘，请检查保存状态': ['Could not hide to the tray. Check the save status.', 'トレイに格納できませんでした。保存状態を確認してください。'],
   '大纲': ['Outline', 'アウトライン'],
   '笔记侧栏': ['Note sidebar', 'ノートのサイドバー'],
   '关闭笔记侧栏': ['Close note sidebar', 'ノートのサイドバーを閉じる'],

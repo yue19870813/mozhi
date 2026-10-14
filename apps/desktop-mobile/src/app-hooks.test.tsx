@@ -16,6 +16,8 @@ const bridge = vi.hoisted(() => ({
   save: vi.fn(),
   checkSshAgent: vi.fn(),
   selectSshKey: vi.fn(),
+  invoke: vi.fn(),
+  listen: vi.fn(),
 }));
 vi.mock("./api", () => ({
   native: true,
@@ -23,6 +25,8 @@ vi.mock("./api", () => ({
   api: bridge,
   errorText: (error: unknown) => String(error),
 }));
+vi.mock("@tauri-apps/api/core", () => ({ invoke: bridge.invoke }));
+vi.mock("@tauri-apps/api/event", () => ({ listen: bridge.listen }));
 let root: Root, host: HTMLDivElement;
 const error = vi.fn();
 const vault = (id: string): Vault => ({
@@ -50,6 +54,8 @@ beforeEach(() => {
   bridge.save.mockReset();
   bridge.checkSshAgent.mockReset();
   bridge.selectSshKey.mockReset();
+  bridge.invoke.mockReset().mockResolvedValue(null);
+  bridge.listen.mockReset().mockResolvedValue(() => {});
   error.mockClear();
   localStorage.clear();
   setLanguage("zh-CN");
@@ -231,6 +237,7 @@ describe("extracted vault sync", () => {
       syncingRef: { current: false },
       session: { current: null },
       schedule: { current: new AutoSyncSchedule(Date.now()) },
+      trayHidden: { current: false },
     };
     let sync!: ReturnType<typeof useVaultSync>;
     const setBusy = vi.fn(),
@@ -382,5 +389,20 @@ describe("extracted vault sync", () => {
     expect(
       JSON.parse(localStorage.getItem("mozhi-auto-sync-v1:a")!).enabled,
     ).toBe(true);
+  });
+  it("reconciles a completed tray sync when the window returns", async () => {
+    const h = harness();
+    await act(async () => { await Promise.resolve(); });
+    bridge.invoke.mockResolvedValueOnce({
+      vaultId: "a", running: false, revision: 3,
+      lastSyncAt: Date.now(), lastError: null, completed: true,
+    });
+    const finished = bridge.listen.mock.calls.find(([name]) => name === "tray_sync_finished")?.[1];
+    expect(finished).toBeTypeOf("function");
+    await act(async () => { finished(); await Promise.resolve(); });
+    expect(h.reload).toHaveBeenCalledOnce();
+    expect(h.sync.syncRevision).toBe(1);
+    expect(h.sync.autoPaused).toBe(false);
+    expect(h.refs.schedule.current.opened).toBe(false);
   });
 });
