@@ -464,8 +464,9 @@ summary { cursor:pointer; }
 }
 .settings-page input:read-only { color:var(--muted); }
 .settings-page button,.settings-page .workspace-toolbar button,.settings-page .mcp-settings button { font-size:12px; font-weight:450; padding:7px 12px; border-radius:7px; }
-.settings-page .workspace-toolbar { gap:8px; margin:16px 0; }
+.settings-page .workspace-toolbar { gap:8px; margin:16px auto; }
 .settings-page .workspace-toolbar:last-child { margin-bottom:0; }
+.ai-settings .ai-config-fields { margin-top:0; }
 .settings-page button.primary,.settings-page .mcp-save-button { background:var(--selected); color:var(--accent); border-color:transparent; }
 .settings-page .segmented,.mcp-client-tabs { padding:3px; gap:3px; background:var(--bg); border:1px solid var(--border); border-radius:7px; }
 .settings-page .segmented button,.settings-page .mcp-client-tabs button { font-size:12px; padding:4px 10px; border:0; border-radius:4px; color:var(--muted); background:transparent; }
