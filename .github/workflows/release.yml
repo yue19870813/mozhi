@@ -68,12 +68,36 @@ jobs:
             bundle: app
     runs-on: ${{ matrix.os }}
     env:
-      TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
       TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
     steps:
       - uses: actions/checkout@v4
         with:
           ref: ${{ needs.prepare.outputs.commit }}
+      - name: Verify updater signing key is configured
+        if: runner.os == 'Windows'
+        shell: pwsh
+        env:
+          UPDATER_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+        run: |
+          if ([string]::IsNullOrWhiteSpace($env:UPDATER_PRIVATE_KEY)) {
+            throw 'GitHub Actions did not provide TAURI_SIGNING_PRIVATE_KEY to the Windows runner.'
+          }
+          $keyPath = Join-Path $env:RUNNER_TEMP 'tauri-updater.key'
+          $encoding = [System.Text.UTF8Encoding]::new($false)
+          [System.IO.File]::WriteAllText($keyPath, $env:UPDATER_PRIVATE_KEY, $encoding)
+          Add-Content -Path $env:GITHUB_ENV -Value "TAURI_SIGNING_PRIVATE_KEY_PATH=$keyPath"
+          Write-Host 'Updater signing key was prepared in the runner temp directory.'
+      - name: Verify updater signing key is configured (Intel macOS)
+        if: runner.os == 'macOS'
+        shell: bash
+        env:
+          UPDATER_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+        run: |
+          if [[ -z "$UPDATER_PRIVATE_KEY" ]]; then
+            echo 'GitHub Actions did not provide TAURI_SIGNING_PRIVATE_KEY to the macOS runner.' >&2
+            exit 1
+          fi
+          echo 'Updater signing key is available.'
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -109,16 +133,19 @@ jobs:
       - run: cargo fmt --all --check
       - run: cargo test --workspace --locked
       - run: cargo clippy --workspace --all-targets --locked -- -D warnings
-      - name: Build installer
-        if: matrix.name != 'macos-x64'
-        run: |
-          test -n "$TAURI_SIGNING_PRIVATE_KEY"
-          npm run tauri -- build --ci --verbose --bundles ${{ matrix.bundle }} -- --locked
+      - name: Build Windows installer
+        if: matrix.name == 'windows-x64'
+        run: npm run tauri -- build --ci --verbose --bundles ${{ matrix.bundle }} -- --locked
+      - name: Build Apple Silicon macOS app
+        if: matrix.name == 'macos-arm64'
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+        run: npm run tauri -- build --ci --verbose --bundles app -- --locked
       - name: Build Intel macOS app with bundled ONNX Runtime
         if: matrix.name == 'macos-x64'
-        run: |
-          test -n "$TAURI_SIGNING_PRIVATE_KEY"
-          npm run tauri -- build --ci --verbose --bundles app --config "$MOZHI_INTEL_TAURI_CONFIG" -- --locked
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+        run: npm run tauri -- build --ci --verbose --bundles app --config "$MOZHI_INTEL_TAURI_CONFIG" -- --locked
       - name: Verify Intel runtime packaging
         if: matrix.name == 'macos-x64'
         run: |
