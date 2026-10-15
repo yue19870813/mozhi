@@ -66,19 +66,23 @@ class ReleaseTests(unittest.TestCase):
             for platform, extension in PLATFORMS.items():
                 folder = root / 'artifacts' / ('desktop-' + platform) / 'bundle'
                 folder.mkdir(parents=True)
-                (folder / ('墨知' + extension)).write_bytes(platform.encode())
-                updater_extension = {'windows-x64': '.nsis.zip', 'macos-arm64': '.app.tar.gz', 'macos-x64': '.app.tar.gz'}[platform]
-                updater = folder / ('墨知' + updater_extension)
-                updater.write_bytes((platform + '-updater').encode())
+                installer = folder / ('墨知' + extension)
+                installer.write_bytes(platform.encode())
+                updater_extension = {'windows-x64': '.exe', 'macos-arm64': '.app.tar.gz', 'macos-x64': '.app.tar.gz'}[platform]
+                updater = installer if platform == 'windows-x64' else folder / ('墨知' + updater_extension)
+                if updater != installer:
+                    updater.write_bytes((platform + '-updater').encode())
                 Path(str(updater) + '.sig').write_text('signature-' + platform, encoding='utf-8')
             output = root / 'output'
             collect(root / 'artifacts', output, '0.9.1')
             lines = (output / 'SHA256SUMS.txt').read_text(encoding="utf-8").splitlines()
-            self.assertEqual(len(lines), 9)
+            self.assertEqual(len(lines), 8)
             manifest = json.loads((output / 'latest.json').read_text(encoding='utf-8'))
             self.assertEqual(manifest['version'], '0.9.1')
             self.assertEqual(set(manifest['platforms']), {'windows-x86_64', 'darwin-aarch64', 'darwin-x86_64'})
-            self.assertTrue(manifest['platforms']['windows-x86_64']['url'].endswith('MoZhi-0.9.1-windows-x86_64.nsis.zip'))
+            self.assertTrue(manifest['platforms']['windows-x86_64']['url'].endswith('MoZhi-0.9.1-windows-x64.exe'))
+            self.assertEqual(manifest['platforms']['windows-x86_64']['signature'], 'signature-windows-x64')
+            self.assertEqual((output / 'MoZhi-0.9.1-windows-x64.exe.sig').read_text(encoding='utf-8').strip(), 'signature-windows-x64')
             for line in lines:
                 digest, name = line.split('  ')
                 self.assertEqual(hashlib.sha256((output / name).read_bytes()).hexdigest(), digest)
@@ -98,10 +102,12 @@ class ReleaseTests(unittest.TestCase):
             for platform, extension in PLATFORMS.items():
                 folder = root / ('desktop-' + platform)
                 folder.mkdir()
-                (folder / ('app' + extension)).write_bytes(b'installer')
-                updater_extension = {'windows-x64': '.nsis.zip', 'macos-arm64': '.app.tar.gz', 'macos-x64': '.app.tar.gz'}[platform]
-                updater = folder / ('app' + updater_extension)
-                updater.write_bytes(b'updater')
+                installer = folder / ('app' + extension)
+                installer.write_bytes(b'installer')
+                updater_extension = {'windows-x64': '.exe', 'macos-arm64': '.app.tar.gz', 'macos-x64': '.app.tar.gz'}[platform]
+                updater = installer if platform == 'windows-x64' else folder / ('app' + updater_extension)
+                if updater != installer:
+                    updater.write_bytes(b'updater')
                 if platform != 'windows-x64':
                     Path(str(updater) + '.sig').write_text('signature', encoding='utf-8')
             with self.assertRaises(ValueError):

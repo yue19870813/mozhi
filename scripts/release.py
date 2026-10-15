@@ -13,9 +13,9 @@ FILES = ['Cargo.toml', 'Cargo.lock', 'package.json', 'package-lock.json',
          'apps/desktop-mobile/package.json', 'apps/desktop-mobile/src-tauri/tauri.conf.json']
 PLATFORMS = {'windows-x64': '.exe', 'macos-arm64': '.dmg', 'macos-x64': '.dmg'}
 UPDATER_PLATFORMS = {
-    'windows-x64': ('windows-x86_64', '.nsis.zip'),
-    'macos-arm64': ('darwin-aarch64', '.app.tar.gz'),
-    'macos-x64': ('darwin-x86_64', '.app.tar.gz'),
+    'windows-x64': ('windows-x86_64', '.exe', 'windows-x64'),
+    'macos-arm64': ('darwin-aarch64', '.app.tar.gz', None),
+    'macos-x64': ('darwin-x86_64', '.app.tar.gz', None),
 }
 
 
@@ -86,36 +86,47 @@ def replacements(root, version):
 def collect(source, destination, version):
     validate(version)
     assets = []
+    installer_assets = {}
     for platform, extension in PLATFORMS.items():
         files = list((source / ('desktop-' + platform)).rglob('*' + extension))
         if len(files) != 1 or files[0].stat().st_size == 0:
             raise ValueError(f'Expected exactly one nonempty {platform} installer, got {len(files)}')
-        assets.append((files[0], f'MoZhi-{version}-{platform}{extension}'))
+        name = f'MoZhi-{version}-{platform}{extension}'
+        assets.append((files[0], name))
+        installer_assets[platform] = (files[0], name)
     updater_assets = []
-    for platform, (target, extension) in UPDATER_PLATFORMS.items():
-        folder = source / ('desktop-' + platform)
-        files = list(folder.rglob('*' + extension))
-        if len(files) != 1 or files[0].stat().st_size == 0:
-            raise ValueError(f'Expected exactly one nonempty {platform} updater package, got {len(files)}')
-        signature = Path(str(files[0]) + '.sig')
+    for platform, (target, extension, installer_platform) in UPDATER_PLATFORMS.items():
+        if installer_platform:
+            package, name = installer_assets[installer_platform]
+        else:
+            folder = source / ('desktop-' + platform)
+            files = list(folder.rglob('*' + extension))
+            if len(files) != 1 or files[0].stat().st_size == 0:
+                raise ValueError(f'Expected exactly one nonempty {platform} updater package, got {len(files)}')
+            package = files[0]
+            name = f'MoZhi-{version}-{target}{extension}'
+        signature = Path(str(package) + '.sig')
         if not signature.is_file() or not signature.read_text(encoding='utf-8').strip():
-            raise ValueError(f'Missing nonempty updater signature for {files[0].name}')
-        name = f'MoZhi-{version}-{target}{extension}'
-        updater_assets.append((target, files[0], name, signature, name + '.sig'))
+            raise ValueError(f'Missing nonempty updater signature for {package.name}')
+        updater_assets.append((target, package, name, signature, name + '.sig'))
     if destination.exists() and any(destination.iterdir()):
         raise ValueError('Release asset directory must be empty')
     destination.mkdir(parents=True, exist_ok=True)
     hashes = []
+    asset_names = set()
     for source_file, name in assets:
         content = source_file.read_bytes()
         (destination / name).write_bytes(content)
         hashes.append(f'{hashlib.sha256(content).hexdigest()}  {name}\n')
+        asset_names.add(name)
     manifest_platforms = {}
     for target, package, name, signature, signature_name in updater_assets:
-        (destination / name).write_bytes(package.read_bytes())
+        if name not in asset_names:
+            (destination / name).write_bytes(package.read_bytes())
+            hashes.append(f'{hashlib.sha256((destination / name).read_bytes()).hexdigest()}  {name}\n')
+            asset_names.add(name)
         signature_content = signature.read_text(encoding='utf-8').strip()
         (destination / signature_name).write_text(signature_content + '\n', encoding='utf-8')
-        hashes.append(f'{hashlib.sha256((destination / name).read_bytes()).hexdigest()}  {name}\n')
         hashes.append(f'{hashlib.sha256((destination / signature_name).read_bytes()).hexdigest()}  {signature_name}\n')
         manifest_platforms[target] = {
             'signature': signature_content,
