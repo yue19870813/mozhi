@@ -549,6 +549,7 @@ export const translations: Record<string, readonly [string, string]> = {
   '准备参考内容': ['Prepare context', '参考内容を準備'],
   '停止生成': ['Stop generating', '生成を停止'],
   '清空对话': ['Clear conversation', '会話をクリア'],
+  '清空搜索与筛选': ['Clear search and filters', '検索とフィルターをクリア'],
   '授权当前笔记库自动发送参考片段': ['Allow this vault to send reference excerpts automatically', 'この保管庫の参考テキストの自動送信を許可'],
   '发送预览': ['Send preview', '送信プレビュー'],
   '本次包含的会话文本': ['Conversation text included', '今回含まれる会話内容'],

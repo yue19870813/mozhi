@@ -38,6 +38,7 @@ button,input,select,textarea { font-size:13px; }
 .sidebar-bottom { padding:12px 2px 0; }
 .sidebar-bottom button { display:block; margin:0 0 10px; font-size:12px; }
 .filter-disclosure { margin:12px 4px 4px; font-size:12px; color:var(--muted); }
+.clear-search { align-self:flex-start; margin:8px 4px 0; padding:4px 6px; border:0; background:transparent; color:var(--muted); font-size:12px; }
 summary { cursor:pointer; }
 .search-filters { gap:8px; }
 .search-filters select { font-size:12px; width:100%; }

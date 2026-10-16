@@ -19,6 +19,13 @@ export function useNoteSearch(
   const [directory, setDirectory] = useState("");
   const [filenameOnly, setFilenameOnly] = useState(false);
   const [results, setResults] = useState<SearchResult | null>(null);
+  function clearSearch() {
+    setQuery("");
+    setTag("");
+    setDirectory("");
+    setFilenameOnly(false);
+    setResults(null);
+  }
   useEffect(() => {
     let active = true;
     if (!query.trim() && !tag && !directory) {
@@ -58,5 +65,6 @@ export function useNoteSearch(
     filenameOnly,
     setFilenameOnly,
     results,
+    clearSearch,
   };
 }

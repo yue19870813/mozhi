@@ -98,6 +98,7 @@ export function NotesSidebar({
     filenameOnly,
     setFilenameOnly,
     results,
+    clearSearch,
   } = search;
   return (
     <div className="module-sidebar-page notes-sidebar" hidden={!visible}>
@@ -112,6 +113,14 @@ export function NotesSidebar({
         />
         <kbd>{platform.modifier} K</kbd>
       </div>
+      {(query || tag || directory || filenameOnly) && (
+        <button className="clear-search" type="button" onClick={() => {
+          clearSearch();
+          searchField.current?.focus();
+        }}>
+          {t("清空搜索与筛选")}
+        </button>
+      )}
       <details className="filter-disclosure">
         <summary>{t("筛选条件")}</summary>
         <div className="search-filters">
