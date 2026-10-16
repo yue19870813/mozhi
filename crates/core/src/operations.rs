@@ -365,33 +365,6 @@ pub fn import_image_bytes(vault: &Vault, bytes: &[u8]) -> Result<String> {
     atomic_write(&checked(vault.root(), &relative, false)?, bytes)?;
     Ok(relative)
 }
-#[cfg(test)]
-mod image_import_tests {
-    use super::*;
-
-    #[test]
-    fn imports_supported_image_bytes_into_vault_attachments() {
-        let root = tempfile::tempdir().unwrap();
-        let recovery = tempfile::tempdir().unwrap();
-        let vault = Vault::open(root.path(), recovery.path()).unwrap();
-        let mut png = b"\x89PNG\r\n\x1a\n".to_vec();
-        png.extend_from_slice(&[1, 2, 3]);
-        let relative = import_image_bytes(&vault, &png).unwrap();
-        assert!(relative.starts_with("attachments/"));
-        assert!(relative.ends_with(".png"));
-        assert_eq!(fs::read(vault.root().join(relative)).unwrap(), png);
-    }
-
-    #[test]
-    fn rejects_unknown_and_oversized_image_bytes_without_creating_attachments() {
-        let root = tempfile::tempdir().unwrap();
-        let recovery = tempfile::tempdir().unwrap();
-        let vault = Vault::open(root.path(), recovery.path()).unwrap();
-        assert!(import_image_bytes(&vault, b"not an image").is_err());
-        assert!(import_image_bytes(&vault, &vec![0; 10 * 1024 * 1024 + 1]).is_err());
-        assert!(!vault.root().join("attachments").exists());
-    }
-}
 pub fn attachment(vault: &Vault, relative: &str) -> Result<(String, Vec<u8>)> {
     let path = checked(vault.root(), relative, true)?;
     if !relative.starts_with("attachments/") || fs::metadata(&path)?.len() > 10 * 1024 * 1024 {
@@ -458,4 +431,32 @@ pub fn export(vault: &Vault, destination: &Path) -> Result<()> {
         .persist_noclobber(destination)
         .map_err(|e| Error::Io(e.error))?;
     Ok(())
+}
+
+#[cfg(test)]
+mod image_import_tests {
+    use super::*;
+
+    #[test]
+    fn imports_supported_image_bytes_into_vault_attachments() {
+        let root = tempfile::tempdir().unwrap();
+        let recovery = tempfile::tempdir().unwrap();
+        let vault = Vault::open(root.path(), recovery.path()).unwrap();
+        let mut png = b"\x89PNG\r\n\x1a\n".to_vec();
+        png.extend_from_slice(&[1, 2, 3]);
+        let relative = import_image_bytes(&vault, &png).unwrap();
+        assert!(relative.starts_with("attachments/"));
+        assert!(relative.ends_with(".png"));
+        assert_eq!(fs::read(vault.root().join(relative)).unwrap(), png);
+    }
+
+    #[test]
+    fn rejects_unknown_and_oversized_image_bytes_without_creating_attachments() {
+        let root = tempfile::tempdir().unwrap();
+        let recovery = tempfile::tempdir().unwrap();
+        let vault = Vault::open(root.path(), recovery.path()).unwrap();
+        assert!(import_image_bytes(&vault, b"not an image").is_err());
+        assert!(import_image_bytes(&vault, &vec![0; 10 * 1024 * 1024 + 1]).is_err());
+        assert!(!vault.root().join("attachments").exists());
+    }
 }
