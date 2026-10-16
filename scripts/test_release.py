@@ -68,7 +68,7 @@ class ReleaseTests(unittest.TestCase):
                 folder.mkdir(parents=True)
                 installer = folder / ('墨知' + extension)
                 installer.write_bytes(platform.encode())
-                updater_extension = {'windows-x64': '.exe', 'macos-arm64': '.app.tar.gz', 'macos-x64': '.app.tar.gz'}[platform]
+                updater_extension = {'windows-x64': '.exe', 'macos-arm64': '.app.tar.gz'}[platform]
                 updater = installer if platform == 'windows-x64' else folder / ('墨知' + updater_extension)
                 if updater != installer:
                     updater.write_bytes((platform + '-updater').encode())
@@ -76,10 +76,10 @@ class ReleaseTests(unittest.TestCase):
             output = root / 'output'
             collect(root / 'artifacts', output, '0.9.1')
             lines = (output / 'SHA256SUMS.txt').read_text(encoding="utf-8").splitlines()
-            self.assertEqual(len(lines), 8)
+            self.assertEqual(len(lines), 5)
             manifest = json.loads((output / 'latest.json').read_text(encoding='utf-8'))
             self.assertEqual(manifest['version'], '0.9.1')
-            self.assertEqual(set(manifest['platforms']), {'windows-x86_64', 'darwin-aarch64', 'darwin-x86_64'})
+            self.assertEqual(set(manifest['platforms']), {'windows-x86_64', 'darwin-aarch64'})
             self.assertTrue(manifest['platforms']['windows-x86_64']['url'].endswith('MoZhi-0.9.1-windows-x64.exe'))
             self.assertEqual(manifest['platforms']['windows-x86_64']['signature'], 'signature-windows-x64')
             self.assertEqual((output / 'MoZhi-0.9.1-windows-x64.exe.sig').read_text(encoding='utf-8').strip(), 'signature-windows-x64')
@@ -104,7 +104,7 @@ class ReleaseTests(unittest.TestCase):
                 folder.mkdir()
                 installer = folder / ('app' + extension)
                 installer.write_bytes(b'installer')
-                updater_extension = {'windows-x64': '.exe', 'macos-arm64': '.app.tar.gz', 'macos-x64': '.app.tar.gz'}[platform]
+                updater_extension = {'windows-x64': '.exe', 'macos-arm64': '.app.tar.gz'}[platform]
                 updater = installer if platform == 'windows-x64' else folder / ('app' + updater_extension)
                 if updater != installer:
                     updater.write_bytes(b'updater')

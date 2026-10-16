@@ -11,11 +11,10 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 FILES = ['Cargo.toml', 'Cargo.lock', 'package.json', 'package-lock.json',
          'apps/desktop-mobile/package.json', 'apps/desktop-mobile/src-tauri/tauri.conf.json']
-PLATFORMS = {'windows-x64': '.exe', 'macos-arm64': '.dmg', 'macos-x64': '.dmg'}
+PLATFORMS = {'windows-x64': '.exe', 'macos-arm64': '.dmg'}
 UPDATER_PLATFORMS = {
     'windows-x64': ('windows-x86_64', '.exe', 'windows-x64'),
     'macos-arm64': ('darwin-aarch64', '.app.tar.gz', None),
-    'macos-x64': ('darwin-x86_64', '.app.tar.gz', None),
 }
 
 
