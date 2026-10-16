@@ -5,13 +5,18 @@ import { EditorState, Compartment } from '@codemirror/state';
 import { EditorView, keymap, lineNumbers, highlightActiveLine, drawSelection, tooltips } from '@codemirror/view';
 import { defaultKeymap, history, historyKeymap } from '@codemirror/commands';
 import { markdown } from '@codemirror/lang-markdown';
-import { defaultHighlightStyle, syntaxHighlighting } from '@codemirror/language';
+import { defaultHighlightStyle, HighlightStyle, syntaxHighlighting } from '@codemirror/language';
+import { tags } from '@lezer/highlight';
 import { search, searchKeymap, openSearchPanel, closeSearchPanel, searchPanelOpen, getSearchQuery } from '@codemirror/search';
 import { matchCount, searchPhrases } from './editor-search';
 import { platform } from './platform';
 import { autocompletion, startCompletion } from '@codemirror/autocomplete';
 import { wikiCompletions } from './wiki-completion';
 import type { ParsedNote } from './api';
+const editorHighlightStyle = HighlightStyle.define([
+  ...defaultHighlightStyle.specs,
+  { tag: [tags.link, tags.url], color: 'var(--accent)' },
+]);
 export function Editor({ documentKey, value, readOnly, onChange, onComposition, onPasteImage, notes = [], path = '', jump }: { documentKey: string; value: string; readOnly: boolean; onChange: (value: string) => void; onComposition: (active: boolean) => void; onPasteImage?: (file: File) => Promise<string | null>; notes?: ParsedNote[]; path?: string; jump?: { offset: number; serial: number } | null }) {
   const language = useLanguage();
   const host = useRef<HTMLDivElement>(null);
@@ -24,7 +29,7 @@ export function Editor({ documentKey, value, readOnly, onChange, onComposition, 
   const [matches, setMatches] = useState<string | null>(null);
   useEffect(() => {
     const editor = new EditorView({ parent: host.current!, state: EditorState.create({ doc: value, extensions: [
-      EditorState.lineSeparator.of(lineSeparator(value)), history(), lineNumbers(), highlightActiveLine(), drawSelection(), markdown(), syntaxHighlighting(defaultHighlightStyle), EditorView.lineWrapping,
+      EditorState.lineSeparator.of(lineSeparator(value)), history(), lineNumbers(), highlightActiveLine(), drawSelection(), markdown(), syntaxHighlighting(editorHighlightStyle), EditorView.lineWrapping,
       search({ top: true, literal: true }), phrases.current.of(searchPhrases()),
       tooltips({ parent: document.body }),
       autocompletion({ override: [context => wikiCompletions(callbacks.current.notes, callbacks.current.path)(context)], icons: false }),
