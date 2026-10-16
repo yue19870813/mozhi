@@ -1170,6 +1170,21 @@ export default function App() {
           })
         }
         onImportImage={() => void importImage()}
+        onPasteImage={native ? async (file) => {
+          if (file.size > 10 * 1024 * 1024) {
+            setError(t("图片上限 10 MiB"));
+            return null;
+          }
+          const attachment = await run(async () => {
+            const bytes = new Uint8Array(await file.arrayBuffer());
+            let binary = "";
+            for (let offset = 0; offset < bytes.length; offset += 0x8000) {
+              binary += String.fromCharCode(...bytes.subarray(offset, offset + 0x8000));
+            }
+            return workspace<string>({ action: "import_image_data", data: btoa(binary) });
+          });
+          return attachment ?? null;
+        } : undefined}
         onToggleRelations={() => setRelationsOpen((value) => !value)}
         onCloseRelations={() => setRelationsOpen(false)}
         onManage={(kind) =>

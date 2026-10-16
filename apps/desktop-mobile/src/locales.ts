@@ -320,6 +320,7 @@ export const translations: Record<string, readonly [string, string]> = {
   '先处理未完成的同步或冲突后再修改文件': ['Resolve incomplete sync or conflicts before changing files', 'ファイルを変更する前に未完了の同期や競合を解決してください'],
   '导出图片过大': ['Exported image is too large', 'エクスポート画像が大きすぎます'],
   '图片格式无效': ['Invalid image format', '画像形式が無効です'],
+  '图片上限 10 MiB': ['Images must be 10 MiB or smaller', '画像は10 MiB以下にしてください'],
   '导出路径无效': ['Invalid export path', 'エクスポート先のパスが無効です'],
   '图谱图片请保存到库外': ['Save graph images outside the vault', 'グラフ画像は保管庫の外に保存してください'],
   '请输入单个目录名称': ['Enter a single folder name', '単一のフォルダー名を入力してください'],

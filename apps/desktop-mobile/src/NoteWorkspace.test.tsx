@@ -9,7 +9,7 @@ import { setLanguage } from './i18n';
 let host: HTMLDivElement, root: Root;
 const content = '# Start\n\n## Repeat\n\n## Repeat\n';
 function render(mode: 'source' | 'preview' | 'split' = 'source', path = 'current.md') {
-  act(() => root.render(<NoteWorkspace visible vaultId="vault-a" path={path} title="Current" content={content} saveStatus="Saved" notes={[]} mode={mode} busy={false} composing={false} syncBlocked={false} syncing={false} pinned={false} relationsOpen sidebarVisible onToggleSidebar={()=>{}} onMode={()=>{}} onSummary={()=>{}} onTogglePin={()=>{}} onImportImage={()=>{}} onToggleRelations={()=>{}} onCloseRelations={()=>{}} onManage={()=>{}} onHistory={()=>{}} onChange={()=>{}} onComposition={()=>{}} onOpen={()=>{}} onLink={()=>{}} onTag={()=>{}} onError={()=>{}}/>));
+  act(() => root.render(<NoteWorkspace visible vaultId="vault-a" path={path} title="Current" content={content} saveStatus="Saved" notes={[]} mode={mode} busy={false} composing={false} syncBlocked={false} syncing={false} pinned={false} relationsOpen sidebarVisible onToggleSidebar={()=>{}} onMode={()=>{}} onSummary={()=>{}} onTogglePin={()=>{}} onImportImage={()=>{}} onPasteImage={async()=>null} onToggleRelations={()=>{}} onCloseRelations={()=>{}} onManage={()=>{}} onHistory={()=>{}} onChange={()=>{}} onComposition={()=>{}} onOpen={()=>{}} onLink={()=>{}} onTag={()=>{}} onError={()=>{}}/>));
 }
 beforeEach(() => {
   Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });

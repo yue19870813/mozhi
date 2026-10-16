@@ -99,6 +99,36 @@ describe('editor find and replace', () => {
   });
 });
 
+describe('pasting images', () => {
+  it('imports a clipboard image and inserts a vault-relative link at the selection', async () => {
+    const importImage = vi.fn(async () => 'attachments/photo.png');
+    act(() => root.render(<Editor documentKey="paste" value="hello world" path="notes/current.md" readOnly={false} onChange={change} onComposition={()=>{}} onPasteImage={importImage}/>));
+    const view = EditorView.findFromDOM(host.querySelector('.cm-editor')!)!;
+    act(() => view.dispatch({ selection: { anchor: 6, head: 11 } }));
+    const file = new File([new Uint8Array([1, 2, 3])], 'clipboard.png', { type: 'image/png' });
+    const paste = new Event('paste', { bubbles: true, cancelable: true });
+    Object.defineProperty(paste, 'clipboardData', { value: { items: [{ kind: 'file', type: 'image/png', getAsFile: () => file }], getData: () => '' } });
+    await act(async () => {
+      view.contentDOM.dispatchEvent(paste);
+      await vi.waitFor(() => expect(view.state.doc.toString()).toBe('hello ![图片](../attachments/photo.png)'));
+    });
+    expect(paste.defaultPrevented).toBe(true);
+    expect(importImage).toHaveBeenCalledWith(file);
+    expect(view.state.selection.main.head).toBe(view.state.doc.length);
+  });
+
+  it('leaves non-image clipboard content to the editor default handler', () => {
+    const importImage = vi.fn(async () => 'attachments/photo.png');
+    act(() => root.render(<Editor documentKey="paste-text" value="hello" path="current.md" readOnly={false} onChange={change} onComposition={()=>{}} onPasteImage={importImage}/>));
+    const view = EditorView.findFromDOM(host.querySelector('.cm-editor')!)!;
+    const paste = new Event('paste', { bubbles: true, cancelable: true });
+    Object.defineProperty(paste, 'clipboardData', { value: { items: [{ kind: 'string', type: 'text/plain', getAsFile: () => null }], getData: () => ' pasted' } });
+    act(() => { view.contentDOM.dispatchEvent(paste); });
+    expect(view.state.doc.toString()).toBe(' pastedhello');
+    expect(importImage).not.toHaveBeenCalled();
+  });
+});
+
 describe('Wiki link suggestions', () => {
   it('opens suggestions after typing [[ and identifies candidates by path', async () => {
     const notes = ['工作/计划.md','个人/计划.md'].map(path => ({path,title:'项目计划',id:null,tags:[],references:[],issues:[]}));

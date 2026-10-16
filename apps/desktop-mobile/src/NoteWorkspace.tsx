@@ -32,6 +32,7 @@ type Props = {
   onSummary: () => void;
   onTogglePin: () => void;
   onImportImage: () => void;
+  onPasteImage?: (file: File) => Promise<string | null>;
   onToggleRelations: () => void;
   onCloseRelations: () => void;
   onManage: (kind: "move" | "delete") => void;
@@ -67,6 +68,7 @@ export function NoteWorkspace({
   onSummary,
   onTogglePin,
   onImportImage,
+  onPasteImage,
   onToggleRelations,
   onCloseRelations,
   onManage,
@@ -209,6 +211,7 @@ export function NoteWorkspace({
                   readOnly={busy || syncBlocked || syncing}
                   onChange={onChange}
                   onComposition={onComposition}
+                  onPasteImage={onPasteImage}
                   notes={notes}
                   path={path}
                   jump={mode !== "preview" ? currentJump : null}

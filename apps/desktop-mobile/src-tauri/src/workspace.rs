@@ -268,6 +268,9 @@ pub enum Request {
         query: knowledge::GraphQuery,
     },
     ImportImage,
+    ImportImageData {
+        data: String,
+    },
     Attachment {
         path: String,
     },
@@ -325,6 +328,7 @@ pub async fn workspace(
                         | Request::Move { .. }
                         | Request::Delete { .. }
                         | Request::ImportImage
+                        | Request::ImportImageData { .. }
                         | Request::Restore { .. }
                 )
             {
@@ -416,6 +420,15 @@ pub async fn workspace(
                     };
                     let path = path.into_path().map_err(failure)?;
                     Ok(json!(operations::import_image(&active.vault, &path)?))
+                }
+                Request::ImportImageData { data } => {
+                    let bytes = base64::engine::general_purpose::STANDARD
+                        .decode(data)
+                        .map_err(failure)?;
+                    Ok(json!(operations::import_image_bytes(
+                        &active.vault,
+                        &bytes
+                    )?))
                 }
                 Request::Attachment { path } => {
                     let (mime, bytes) = operations::attachment(&active.vault, &path)?;

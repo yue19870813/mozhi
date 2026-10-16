@@ -12,12 +12,12 @@ import { platform } from './platform';
 import { autocompletion, startCompletion } from '@codemirror/autocomplete';
 import { wikiCompletions } from './wiki-completion';
 import type { ParsedNote } from './api';
-export function Editor({ documentKey, value, readOnly, onChange, onComposition, notes = [], path = '', jump }: { documentKey: string; value: string; readOnly: boolean; onChange: (value: string) => void; onComposition: (active: boolean) => void; notes?: ParsedNote[]; path?: string; jump?: { offset: number; serial: number } | null }) {
+export function Editor({ documentKey, value, readOnly, onChange, onComposition, onPasteImage, notes = [], path = '', jump }: { documentKey: string; value: string; readOnly: boolean; onChange: (value: string) => void; onComposition: (active: boolean) => void; onPasteImage?: (file: File) => Promise<string | null>; notes?: ParsedNote[]; path?: string; jump?: { offset: number; serial: number } | null }) {
   const language = useLanguage();
   const host = useRef<HTMLDivElement>(null);
   const view = useRef<EditorView | null>(null);
-  const callbacks = useRef({ onChange, onComposition, notes, path });
-  callbacks.current = { onChange, onComposition, notes, path };
+  const callbacks = useRef({ onChange, onComposition, onPasteImage, notes, path });
+  callbacks.current = { onChange, onComposition, onPasteImage, notes, path };
   const editability = useRef(new Compartment());
   const accessibility = useRef(new Compartment());
   const phrases = useRef(new Compartment());
@@ -43,7 +43,29 @@ export function Editor({ documentKey, value, readOnly, onChange, onComposition, 
           setMatches(searchPanelOpen(update.state) ? matchCount(update.state, getSearchQuery(update.state)) : null);
         }
       }),
-      EditorView.domEventHandlers({ compositionstart: () => { callbacks.current.onComposition(true); }, compositionend: () => { callbacks.current.onComposition(false); } }),
+      EditorView.domEventHandlers({
+        compositionstart: () => { callbacks.current.onComposition(true); },
+        compositionend: () => { callbacks.current.onComposition(false); },
+        paste: (event, editor) => {
+          const importImage = callbacks.current.onPasteImage;
+          if (!importImage || editor.state.readOnly) return false;
+          const clipboard = event.clipboardData;
+          const file = Array.from(clipboard?.items ?? [])
+            .find(item => item.kind === 'file' && item.type.startsWith('image/'))
+            ?.getAsFile() ?? Array.from(clipboard?.files ?? []).find(item => item.type.startsWith('image/'));
+          if (!file) return false;
+          event.preventDefault();
+          const { from, to } = editor.state.selection.main;
+          const notePath = callbacks.current.path;
+          void importImage(file).then(relative => {
+            if (!relative || view.current !== editor || callbacks.current.path !== notePath) return;
+            const prefix = '../'.repeat(notePath.split('/').length - 1);
+            const insertion = `![图片](${prefix}${relative})`;
+            editor.dispatch({ changes: { from, to, insert: insertion }, selection: { anchor: from + insertion.length } });
+          }).catch(() => {});
+          return true;
+        },
+      }),
       EditorView.theme({ '&': { height: '100%', background: 'transparent', color: 'var(--text)' }, '.cm-scroller': { overflow: 'auto', fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', fontSize: '14px', lineHeight: '1.9' }, '.cm-content': { padding: '30px 0 90px' }, '.cm-line': { padding: '0 26px' }, '.cm-gutters': { background: 'transparent', color: 'var(--muted)', border: 'none', paddingTop: '30px' }, '.cm-activeLine': { background: 'var(--hover)' }, '.cm-activeLineGutter': { background: 'transparent' }, '.cm-cursor': { borderLeftColor: 'var(--accent)' }, '&.cm-focused .cm-selectionBackground, .cm-selectionBackground': { background: '#35618e55' }, '&.cm-focused': { outline: 'none' } }),
     ] }) });
     view.current = editor;
