@@ -2666,7 +2666,7 @@ dependencies = [
 
 [[package]]
 name = "mozhi"
-version = "0.8.1"
+version = "0.8.2"
 dependencies = [
  "base64 0.22.1",
  "fastembed",
@@ -2699,7 +2699,7 @@ dependencies = [
 
 [[package]]
 name = "mozhi-core"
-version = "0.8.1"
+version = "0.8.2"
 dependencies = [
  "fs2",
  "git2",
@@ -2722,7 +2722,7 @@ dependencies = [
 
 [[package]]
 name = "mozhi-mcp"
-version = "0.8.1"
+version = "0.8.2"
 dependencies = [
  "axum",
  "reqwest 0.12.28",
@@ -2736,7 +2736,7 @@ dependencies = [
 
 [[package]]
 name = "mozhi-windows"
-version = "0.8.1"
+version = "0.8.2"
 dependencies = [
  "sha2",
  "tempfile",
