@@ -2,7 +2,7 @@ export type Module = 'home' | 'notes' | 'graph' | 'ai' | 'help' | 'settings';
 export type HomePage = 'overview' | 'recent';
 export type SettingsPage = 'appearance' | 'vault' | 'sync' | 'recovery' | 'ai' | 'mcp' | 'about';
 export type HelpPage = 'intro' | 'shortcuts' | 'lab';
-export type EditorMode = 'source' | 'split' | 'preview';
+export type EditorMode = 'source' | 'split' | 'preview' | 'mindmap';
 export const moduleLabels: Record<Module, string> = { home: '首页', notes: '我的笔记', graph: '知识图谱', ai: 'AI 助理', help: '帮助', settings: '设置' };
 
 /** The action must not run if saving fails or composition/another operation owns the session. */
@@ -20,5 +20,5 @@ export function savePreference(key: string, value: string) {
 }
 export function readEditorMode(): EditorMode {
   const value = readPreference('mozhi-editor-mode', 'split');
-  return value === 'source' || value === 'preview' ? value : 'split';
+  return value === 'source' || value === 'preview' || value === 'mindmap' ? value : 'split';
 }

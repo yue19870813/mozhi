@@ -1,5 +1,12 @@
 // Source text remains the Simplified Chinese fallback. Note content is never translated.
 export const translations: Record<string, readonly [string, string]> = {
+  "脑图": ["Mind map", "マインドマップ"],
+  "脑图预览": ["Mind map preview", "マインドマッププレビュー"],
+  "放大脑图": ["Zoom in", "拡大"],
+  "缩小脑图": ["Zoom out", "縮小"],
+  "展开全部": ["Expand all", "すべて展開"],
+  "拖动画布移动，点击分支折叠或展开": ["Drag to pan; click branches to collapse or expand", "ドラッグで移動、分岐をクリックして折りたたみ・展開"],
+
   '创建并同步个人笔记库': ['Create and sync a personal vault', '個人用ノート庫を作成して同期'],
   '步骤 {0} / 4': ['Step {0} of 4', 'ステップ {0} / 4'],
   '我的笔记库': ['My vault', 'マイノート庫'],

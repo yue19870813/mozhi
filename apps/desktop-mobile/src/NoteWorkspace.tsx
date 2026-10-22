@@ -1,5 +1,6 @@
 import { t, useLanguage } from "./i18n";
 import { Editor } from "./Editor";
+import { MindmapPreview } from "./MindmapPreview";
 import { Preview } from "./Preview";
 import { Icon } from "./AppShell";
 import { native, type ParsedNote } from "./api";
@@ -122,7 +123,7 @@ export function NoteWorkspace({
             <Icon name="panel" />
           </button>
           <div className="segmented" role="group" aria-label={t("笔记视图")}>
-            {(["source", "split", "preview"] as const).map((key, i) => (
+            {(["source", "split", "preview", "mindmap"] as const).map((key, i) => (
               <button
                 disabled={composing}
                 aria-pressed={mode === key}
@@ -130,7 +131,7 @@ export function NoteWorkspace({
                 key={key}
                 onClick={() => onMode(key)}
               >
-                {[t("源码"), t("分栏"), t("预览")][i]}
+                {[t("源码"), t("分栏"), t("预览"), t("脑图")][i]}
               </button>
             ))}
           </div>
@@ -201,7 +202,7 @@ export function NoteWorkspace({
         <div className="editing-area">
           <div className={`document-panes ${mode}`}>
             {
-              <div hidden={mode === "preview"} className="source-pane">
+              <div hidden={mode === "preview" || mode === "mindmap"} className="source-pane">
                 <div className="pane-label">
                   MARKDOWN <span>UTF-8</span>
                 </div>
@@ -214,18 +215,19 @@ export function NoteWorkspace({
                   onPasteImage={onPasteImage}
                   notes={notes}
                   path={path}
-                  jump={mode !== "preview" ? currentJump : null}
+                  jump={mode === "source" || mode === "split" ? currentJump : null}
                 />
               </div>
             }
             {
-              <div hidden={mode === "source"} className="preview-pane">
+              <div hidden={mode === "source" || mode === "mindmap"} className="preview-pane">
                 <div className="pane-label">
                   {t("预览")} <span>{t("安全渲染")}</span>
                 </div>
                 <Preview content={content} path={path} onOpen={onLink} jump={mode !== "source" ? currentJump : null} />
               </div>
             }
+            {mode === "mindmap" && visible && <MindmapPreview key={`${vaultId}:${path}`} content={content} title={title || t("无标题")}/>}
           </div>
           <aside
             id="note-relations"

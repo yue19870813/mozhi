@@ -8,7 +8,7 @@ import { setLanguage } from './i18n';
 
 let host: HTMLDivElement, root: Root;
 const content = '# Start\n\n## Repeat\n\n## Repeat\n';
-function render(mode: 'source' | 'preview' | 'split' = 'source', path = 'current.md') {
+function render(mode: 'source' | 'preview' | 'split' | 'mindmap' = 'source', path = 'current.md') {
   act(() => root.render(<NoteWorkspace visible vaultId="vault-a" path={path} title="Current" content={content} saveStatus="Saved" notes={[]} mode={mode} busy={false} composing={false} syncBlocked={false} syncing={false} pinned={false} relationsOpen sidebarVisible onToggleSidebar={()=>{}} onMode={()=>{}} onSummary={()=>{}} onTogglePin={()=>{}} onImportImage={()=>{}} onPasteImage={async()=>null} onToggleRelations={()=>{}} onCloseRelations={()=>{}} onManage={()=>{}} onHistory={()=>{}} onChange={()=>{}} onComposition={()=>{}} onOpen={()=>{}} onLink={()=>{}} onTag={()=>{}} onError={()=>{}}/>));
 }
 beforeEach(() => {
@@ -20,6 +20,18 @@ beforeEach(() => {
 });
 afterEach(() => { act(() => root.unmount()); host.remove(); setLanguage('en'); });
 describe('note outline panel', () => {
+  it('offers mind map mode and preserves the mounted editor when switching views', () => {
+    render();
+    expect([...host.querySelectorAll('.segmented button')].map(button => button.textContent)).toContain('脑图');
+    const view = EditorView.findFromDOM(host.querySelector('.cm-editor')!)!;
+    render('mindmap');
+    expect(host.querySelector('.source-pane')?.hasAttribute('hidden')).toBe(true);
+    expect(host.querySelector('.preview-pane')?.hasAttribute('hidden')).toBe(true);
+    expect(host.querySelector('.mindmap-preview')).not.toBeNull();
+    render('source');
+    expect(EditorView.findFromDOM(host.querySelector('.cm-editor')!)).toBe(view);
+    expect(view.state.doc.toString()).toBe(content);
+  });
   it('keeps duplicate headings separate and moves the source cursor to the chosen heading', () => {
     render();
     const tabs = host.querySelectorAll('[role=tab]');

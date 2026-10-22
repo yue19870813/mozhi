@@ -1,5 +1,12 @@
 // Traditional Chinese UI text. User content is never converted.
 export const traditionalTranslations: Record<string, string> = {
+  "脑图": "心智圖",
+  "脑图预览": "心智圖預覽",
+  "放大脑图": "放大心智圖",
+  "缩小脑图": "縮小心智圖",
+  "展开全部": "展開全部",
+  "拖动画布移动，点击分支折叠或展开": "拖動畫布移動，點擊分支收合或展開",
+
   '创建并同步个人笔记库': '建立並同步個人筆記庫',
   '步骤 {0} / 4': '步驟 {0} / 4',
   '我的笔记库': '我的筆記庫',

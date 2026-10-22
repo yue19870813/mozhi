@@ -517,3 +517,15 @@ body > div > .cm-tooltip.cm-tooltip-autocomplete li[role=option] { padding:6px 9
 body > div > .cm-tooltip.cm-tooltip-autocomplete li[role=option][aria-selected] { background:var(--selected); color:var(--text); }
 body > div > .cm-tooltip.cm-tooltip-autocomplete .cm-completionDetail { margin-left:10px; color:var(--muted); font-style:normal; }
 body > div > .cm-tooltip.cm-tooltip-autocomplete .cm-completionMatchedText { color:var(--accent); text-decoration:none; font-weight:600; }
+
+.mindmap-preview { display:flex; flex-direction:column; flex:1; min-width:0; min-height:0; }
+.mindmap-toolbar { display:flex; align-items:center; flex-wrap:wrap; gap:6px; padding:10px 14px; border-bottom:1px solid var(--border); }
+.mindmap-toolbar button { font-size:11px; padding:5px 9px; }
+.mindmap-toolbar span { font-size:11px; color:var(--muted); }
+.mindmap-canvas { width:100%; flex:1; min-height:0; touch-action:none; cursor:grab; user-select:none; }
+.mindmap-canvas:active { cursor:grabbing; }
+.mindmap-node rect { fill:var(--panel); stroke:var(--accent); stroke-width:1.5; }
+.mindmap-node text { fill:var(--text); font-size:13px; pointer-events:none; }
+.mindmap-node[role=button] { cursor:pointer; }
+.mindmap-node[role=button]:hover rect,.mindmap-node:focus rect { fill:var(--selected); stroke-width:3; }
+.mindmap-edge { fill:none; stroke:var(--accent); stroke-width:1.5; opacity:.65; }
