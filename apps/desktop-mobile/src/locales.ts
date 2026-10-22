@@ -1,5 +1,6 @@
 // Source text remains the Simplified Chinese fallback. Note content is never translated.
 export const translations: Record<string, readonly [string, string]> = {
+  "显示图片附件目录": ["Show image attachments folder", "画像添付フォルダーを表示"],
   "脑图": ["Mind map", "マインドマップ"],
   "脑图预览": ["Mind map preview", "マインドマッププレビュー"],
   "放大脑图": ["Zoom in", "拡大"],

@@ -1,7 +1,12 @@
 import { describe, expect, it, vi } from 'vitest';
-import { afterSave } from './navigation';
+import { afterSave, filterAttachmentTree } from './navigation';
 import { DocumentSession } from './session';
 describe('navigation save protection', () => {
+  it('hides the attachments folder and its contents unless explicitly enabled', () => {
+    const entries = [{path:'notes',isDirectory:true},{path:'attachments',isDirectory:true},{path:'attachments/image.png',isDirectory:false},{path:'other/attachments/image.png',isDirectory:false}];
+    expect(filterAttachmentTree(entries, false).map(entry => entry.path)).toEqual(['notes','other/attachments/image.png']);
+    expect(filterAttachmentTree(entries, true)).toEqual(entries);
+  });
   it('retains the current document and draft when saving fails', async () => {
     const session=new DocumentSession({path:'a.md',content:'disk',contentHash:'old'},async()=>{throw new Error('conflict');});
     session.text='unsaved 中文';const navigate=vi.fn(async()=>{});

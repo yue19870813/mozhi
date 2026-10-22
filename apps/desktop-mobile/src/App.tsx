@@ -1,5 +1,6 @@
 import { t, useLanguage } from "./i18n";
 import { LanguageSettings } from "./LanguageSettings";
+import { SettingsSwitch } from "./SettingsSwitch";
 import { AboutPage } from "./AboutPage";
 import { RefreshCw } from "lucide-react";
 import {
@@ -47,6 +48,7 @@ import { GraphFilters, initialGraphFilters } from "./GraphFilters";
 import {
   afterSave,
   moduleLabels,
+  filterAttachmentTree,
   readEditorMode,
   readPreference,
   savePreference,
@@ -99,6 +101,7 @@ export default function App() {
   const [createSyncOpen, setCreateSyncOpen] = useState(false);
   const [module, setModule] = useState<Module>("home"),
     [mode, setMode] = useState(readEditorMode);
+  const [showAttachmentDirectory, setShowAttachmentDirectory] = useState(() => readPreference("mozhi-show-attachment-directory", "false") === "true");
   const [homePage, setHomePage] = useState<HomeSection>("overview"),
     [helpPage, setHelpPage] = useState<HelpPage>("intro"),
     [settingsPage, setSettingsPage] = useState<SettingsPage>("appearance");
@@ -172,6 +175,9 @@ export default function App() {
   useEffect(() => {
     savePreference("mozhi-editor-mode", mode);
   }, [mode]);
+  useEffect(() => {
+    savePreference("mozhi-show-attachment-directory", String(showAttachmentDirectory));
+  }, [showAttachmentDirectory]);
   useEffect(() => {
     if (searchFocus && module === "notes" && sidebar.visible)
       searchField.current?.focus();
@@ -819,15 +825,16 @@ export default function App() {
         notes.find((note) => note.path === next)?.title ??
         next.split("/").pop()!.replace(/\.md$/i, ""),
     }));
-  const visibleTree = (
+  const allTreeEntries =
     native
       ? tree
       : (vault?.entries.map((e) => ({
           ...e,
           isDirectory: false,
           isAttachment: false,
-        })) ?? [])
-  ).filter(
+        })) ?? []);
+  const displayTree = filterAttachmentTree(allTreeEntries, showAttachmentDirectory);
+  const visibleTree = displayTree.filter(
     (e) => ![...collapsed].some((folder) => e.path.startsWith(`${folder}/`)),
   );
   const sidebarContent = (
@@ -898,7 +905,7 @@ export default function App() {
         search={search}
         searchField={searchField}
         tags={tags}
-        tree={tree}
+        tree={displayTree}
         visibleTree={visibleTree}
         collapsed={collapsed}
         selectedTreePath={selectedTreePath}
@@ -1354,6 +1361,10 @@ export default function App() {
             </div>
           </div>
           <LanguageSettings />
+          <div className="setting-row">
+            <span>{t("显示图片附件目录")}</span>
+            <SettingsSwitch label={t("显示图片附件目录")} checked={showAttachmentDirectory} onChange={event => setShowAttachmentDirectory(event.target.checked)} />
+          </div>
         </div>
       </section>
       <section className="settings-page" hidden={tab !== "vault"}>

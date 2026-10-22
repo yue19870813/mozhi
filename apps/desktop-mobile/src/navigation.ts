@@ -18,6 +18,9 @@ export function readPreference(key: string, fallback: string): string {
 export function savePreference(key: string, value: string) {
   try { localStorage.setItem(key, value); } catch { /* UI preferences must not interrupt editing. */ }
 }
+export function filterAttachmentTree<T extends { path: string }>(entries: T[], showAttachments: boolean): T[] {
+  return showAttachments ? entries : entries.filter(entry => entry.path !== 'attachments' && !entry.path.startsWith('attachments/'));
+}
 export function readEditorMode(): EditorMode {
   const value = readPreference('mozhi-editor-mode', 'split');
   return value === 'source' || value === 'preview' || value === 'mindmap' ? value : 'split';
