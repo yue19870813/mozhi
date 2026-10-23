@@ -74,6 +74,7 @@ import {
 } from "./pinned";
 import { createPath, parentDirectory } from "./create-path";
 import { treeMoveDestination } from "./tree-drag";
+import { useCollapsedFolders } from "./useCollapsedFolders";
 const KnowledgeGraph = lazy(() =>
   import("./KnowledgeGraph").then((m) => ({ default: m.KnowledgeGraph })),
 );
@@ -191,8 +192,8 @@ export default function App() {
   const syncingRef = useRef(false);
   const [tree, setTree] = useState<TreeEntry[]>([]),
     [notes, setNotes] = useState<ParsedNote[]>([]),
-    [revision, setRevision] = useState(0),
-    [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+    [revision, setRevision] = useState(0);
+  const { collapsed, setCollapsed, restore: restoreCollapsedFolders } = useCollapsedFolders();
   const [selectedDirectory, setSelectedDirectory] = useState("");
   const [selectedTreePath, setSelectedTreePath] = useState("");
   const [dragSource, setDragSource] = useState(""),
@@ -305,7 +306,7 @@ export default function App() {
       setRecovery(null);
       setNotes([]);
       setTree([]);
-      setCollapsed(new Set());
+      restoreCollapsedFolders(opened.id);
       const first =
         opened.entries.find(
           (e) => e.path === "欢迎使用.md" && !opened.skipped.includes(e.path),
@@ -316,7 +317,7 @@ export default function App() {
       if (opened.skipped.length)
         setError(t("未读取的笔记：{0}", opened.skipped.join("、")));
     },
-    [loadNote, updateKnowledge],
+    [loadNote, updateKnowledge, restoreCollapsedFolders],
   );
   async function run<T>(action: () => Promise<T>): Promise<T | undefined> {
     if (operation.current || isComposing.current || busy) return;
