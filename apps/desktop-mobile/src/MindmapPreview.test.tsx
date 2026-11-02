@@ -1,7 +1,9 @@
 // @vitest-environment jsdom
 import { act } from 'react';
 import { createRoot } from 'react-dom/client';
-import { expect, it } from 'vitest';
+import { expect, it, vi } from 'vitest';
+vi.mock('./api', () => ({ native: true, workspace: vi.fn() }));
+import { workspace } from './api';
 import { MindmapPreview } from './MindmapPreview';
 import { setLanguage } from './i18n';
 
@@ -45,4 +47,53 @@ it('renders every character of a long label across multiple visible lines', () =
     expect([...node.querySelectorAll('tspan')].map(line => line.textContent).join('')).toBe(label);
     expect(Number(node.querySelector('rect')?.getAttribute('height'))).toBeGreaterThan(48);
   } finally { act(() => root.unmount()); }
+});
+
+
+it('loads local thumbnails, opens by mouse or keyboard and closes by button, Escape and backdrop', async () => {
+  Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
+  setLanguage('zh-CN');
+  const data = 'data:image/png;base64,aGVsbG8=';
+  vi.mocked(workspace).mockResolvedValue(data);
+  const host = document.createElement('div');
+  document.body.append(host);
+  const root = createRoot(host);
+  try {
+    await act(async () => root.render(<MindmapPreview path="notes/note.md" title="Note" content={'# Root\n- ![Photo](../attachments/photo.png)\n  - Child\n\n![remote](https://example.com/remote.png)'}/>));
+    expect(workspace).toHaveBeenCalledWith({ action: 'attachment', path: 'attachments/photo.png' });
+    expect(host.querySelectorAll('image')).toHaveLength(1);
+    const thumbnail = host.querySelector<SVGElement>('image')!;
+    expect(thumbnail.getAttribute('href')).toBe(data);
+    const open = () => act(() => thumbnail.dispatchEvent(new MouseEvent('click', { bubbles: true })));
+    open();
+    const dialog = () => document.querySelector<HTMLElement>('[role="dialog"]');
+    expect(dialog()?.querySelector('img')?.getAttribute('src')).toBe(data);
+    expect(host.querySelector('[aria-label="Child"]')).not.toBeNull();
+    act(() => dialog()!.querySelector<HTMLImageElement>('img')!.click());
+    expect(dialog()).not.toBeNull();
+    act(() => dialog()!.querySelector<HTMLButtonElement>('button')!.click());
+    expect(dialog()).toBeNull();
+    act(() => thumbnail.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })));
+    expect(dialog()).not.toBeNull();
+    act(() => document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })));
+    expect(dialog()).toBeNull();
+    open();
+    act(() => dialog()!.click());
+    expect(dialog()).toBeNull();
+    open();
+    await act(async () => root.render(<MindmapPreview content="# Other" title="Other"/>));
+    expect(dialog()).toBeNull();
+  } finally { act(() => root.unmount()); host.remove(); vi.clearAllMocks(); setLanguage('en'); }
+});
+
+it('leaves an unavailable image placeholder when attachment loading fails', async () => {
+  Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
+  vi.mocked(workspace).mockRejectedValue(new Error('missing attachment'));
+  const host = document.createElement('div');
+  const root = createRoot(host);
+  try {
+    await act(async () => root.render(<MindmapPreview content="![](attachments/missing.png)" title="Note"/>));
+    expect(host.querySelector('image')).toBeNull();
+    expect(host.textContent).toContain('Image attachment:');
+  } finally { act(() => root.unmount()); vi.clearAllMocks(); }
 });

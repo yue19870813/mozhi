@@ -2,7 +2,7 @@ import { t, useLanguage } from './i18n';
 import { useEffect, useRef, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { native, workspace } from './api';
+import { useAttachmentImage } from './attachment-image';
 import type { Root, Parent, Text, Link } from 'mdast';
 import { openWebUrl, webUrl } from './external-links';
 import { markdownBody } from './note-outline';
@@ -20,11 +20,7 @@ function wikiLinks(){return (tree:Root)=>{
 };}
 function Attachment({path,src,alt}:{path:string;src?:string;alt?:string}){
   useLanguage();
-  const [url,setUrl]=useState('');
-  useEffect(()=>{let active=true;setUrl('');if(!native||!src||/^[a-z][a-z\d+.-]*:/i.test(src)||src.startsWith('/'))return;
-    try{const parts=path.split('/').slice(0,-1);for(const part of decodeURIComponent(src).split('/')){if(part==='..'){if(!parts.length)return;parts.pop();}else if(part&&part!=='.')parts.push(part);}const relative=parts.join('/');if(!relative.startsWith('attachments/'))return;workspace<string>({action:'attachment',path:relative}).then(data=>{if(active)setUrl(data);}).catch(()=>{});}catch{/* Invalid paths remain placeholders. */}
-    return()=>{active=false;};
-  },[src,path]);
+  const url = useAttachmentImage(path, src ?? '');
   return url?<img src={url} alt={alt??t("图片附件")}/>:<span className="image-placeholder">{t("图片附件：")}{alt||src||t("不可用")}{t("（仅加载库内附件）")}</span>;
 }
 export function Preview({content,path='',onOpen,jump}:{content:string;path?:string;onOpen:(path:string,wiki?:boolean)=>void;jump?:{offset:number;serial:number}|null}){

@@ -227,7 +227,7 @@ export function NoteWorkspace({
                 <Preview content={content} path={path} onOpen={onLink} jump={mode !== "source" ? currentJump : null} />
               </div>
             }
-            {mode === "mindmap" && visible && <MindmapPreview key={`${vaultId}:${path}`} content={content} title={title || t("无标题")}/>}
+            {mode === "mindmap" && visible && <MindmapPreview key={`${vaultId}:${path}`} content={content} path={path} title={title || t("无标题")}/>}
           </div>
           <aside
             id="note-relations"

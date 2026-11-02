@@ -43,3 +43,24 @@ describe('Markdown mind map', () => {
     expect(child.height).toBeGreaterThan(48);
   });
 });
+
+it('retains local images in headings, lists and image-only paragraphs including reference images', () => {
+  const tree = markdownMindmap('# Root ![cover](../attachments/cover.png)\n\n![](../attachments/one.png)\n\n- Parent ![parent](../attachments/p.png)\n  - ![child][pic]\n\n[pic]: ../attachments/child.png', 'Note', 'notes/note.md');
+  expect(tree.images).toEqual([{ url: '../attachments/cover.png', alt: 'cover' }]);
+  expect(tree.children[0].images).toEqual([{ url: '../attachments/one.png', alt: '' }]);
+  expect(tree.children[1].images).toHaveLength(1);
+  expect(tree.children[1].children[0].images).toEqual([{ url: '../attachments/child.png', alt: 'child' }]);
+  const layout = mindmapLayout(tree, new Set());
+  expect(layout.nodes.find(n => n.node === tree.children[0])!.height).toBeGreaterThan(132);
+});
+
+it('keeps image-heavy parent nodes inside the canvas and apart from sibling branches', () => {
+  const tree = markdownMindmap('# Root\n- Parent ![](attachments/a.png) ![](attachments/b.png)\n  - Child\n- Sibling ![](attachments/c.png)\n  - Child', 'Note');
+  const layout = mindmapLayout(tree, new Set());
+  for (const node of layout.nodes) {
+    expect(node.y - node.height / 2).toBeGreaterThanOrEqual(40);
+    expect(node.y + node.height / 2).toBeLessThanOrEqual(layout.height - 40);
+  }
+  const siblings = layout.nodes.filter(n => n.parent === tree.id);
+  expect(siblings[0].y + siblings[0].height / 2).toBeLessThan(siblings[1].y - siblings[1].height / 2);
+});

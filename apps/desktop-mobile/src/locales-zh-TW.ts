@@ -1,5 +1,9 @@
 // Traditional Chinese UI text. User content is never converted.
 export const traditionalTranslations: Record<string, string> = {
+  '图片预览': '圖片預覽',
+  '关闭图片预览': '關閉圖片預覽',
+  '查看图片：{0}': '查看圖片：{0}',
+
   "显示图片附件目录": "顯示圖片附件資料夾",
   "脑图": "心智圖",
   "脑图预览": "心智圖預覽",
