@@ -73,7 +73,7 @@ export function AboutPage() {
       <div><dt>{t('开发工作室')}</dt><dd>墨烛工作室</dd></div>
       <div><dt>{t('应用版本')}</dt><dd>{version}</dd></div>
       <div><dt>{t('运行环境')}</dt><dd>{native?t(platform.desktop):t('浏览器演示')}</dd></div>
-      <div><dt>{t('软件更新')}</dt><dd className="about-update"><button type="button" disabled={checking} onClick={() => void checkForUpdates()}><span aria-hidden="true">{progress !== null ? <Download size={15}/> : message === t('当前已是最新版本') ? <Check size={15}/> : <RefreshCw size={15}/>}</span>{checking ? t('正在检查更新') : t('检查更新')}</button>{progress !== null && <progress max="100" value={progress}/>}<span role="status" aria-live="polite">{progress !== null ? `${progress}%` : message}</span></dd></div>
+      <div><dt>{t('软件更新')}</dt><dd className="about-update"><button type="button" disabled={checking} aria-busy={checking} onClick={() => void checkForUpdates()}><span className={checking ? 'update-icon-spinning' : undefined} aria-hidden="true">{progress !== null ? <Download size={15}/> : message === t('当前已是最新版本') ? <Check size={15}/> : <RefreshCw size={15}/>}</span>{checking ? t('正在检查更新') : t('检查更新')}</button>{progress !== null && <progress max="100" value={progress}/>}<span role="status" aria-live="polite">{progress !== null ? `${progress}%` : message}</span></dd></div>
       <div><dt>{t('开源许可证')}</dt><dd>MIT</dd></div>
     </dl>
     <blockquote className="about-dedication">{t('献给我美丽的妻子和两个可爱的宝贝，谢谢你们让平凡的日子闪闪发光。')}</blockquote>

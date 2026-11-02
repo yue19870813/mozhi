@@ -235,6 +235,8 @@ summary { cursor:pointer; }
 .about-details dd { margin:0; overflow-wrap:anywhere; }
 .about-update { display:flex; align-items:center; min-width:0; gap:8px; }
 .about-update button { display:inline-flex; align-items:center; justify-content:center; gap:7px; height:28px; padding:0 10px; line-height:1; white-space:nowrap; flex-shrink:0; }
+.about-update .update-icon-spinning svg { animation:sync-rotate 1s linear infinite; }
+@media(prefers-reduced-motion:reduce) { .about-update .update-icon-spinning svg { animation:none; } }
 .about-update progress { width:120px; height:8px; accent-color:var(--accent); }
 .about-update [role="status"] { min-width:0; color:var(--muted); font-size:12px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .about-window { min-height:100vh; align-items:center; justify-content:center; padding:30px 28px; text-align:center; background:var(--bg); color:var(--text); }
