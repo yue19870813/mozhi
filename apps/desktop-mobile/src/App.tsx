@@ -408,6 +408,7 @@ export default function App() {
     setBusy,
     setError,
     setStatus,
+    onSyncSettled: () => composition(false),
   });
   useEffect(() => {
     if (initialized.current) return;

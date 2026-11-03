@@ -48,6 +48,31 @@ mod sync_tests {
         }
     }
     #[test]
+    fn dropping_sync_lock_guard_releases_lock_even_when_a_duplicate_remains_open() {
+        let private = tempfile::tempdir().unwrap();
+        let path = private.path().join("sync.lock");
+        let lock = fs::OpenOptions::new()
+            .create(true)
+            .truncate(false)
+            .read(true)
+            .write(true)
+            .open(&path)
+            .unwrap();
+        let contender = fs::OpenOptions::new()
+            .read(true)
+            .write(true)
+            .open(&path)
+            .unwrap();
+        fs2::FileExt::lock_exclusive(&lock).unwrap();
+        let guard = FileLockGuard(&lock);
+        let duplicate = lock.try_clone().unwrap();
+        assert!(fs2::FileExt::try_lock_shared(&contender).is_err());
+        drop(guard);
+        fs2::FileExt::try_lock_shared(&contender).unwrap();
+        fs2::FileExt::unlock(&contender).unwrap();
+        drop(duplicate);
+    }
+    #[test]
     fn reads_remain_available_while_sync_blocks_writes_and_guard_resets() {
         let root = tempfile::tempdir().unwrap();
         let private = tempfile::tempdir().unwrap();
@@ -138,6 +163,7 @@ pub(crate) fn background_sync(
         .map_err(failure)?;
     fs2::FileExt::try_lock_exclusive(&sync_lock)
         .map_err(|_| failure("笔记库正在另一个窗口同步"))?;
+    let _sync_lock_guard = FileLockGuard(&sync_lock);
     let lock = fs::OpenOptions::new()
         .create(true)
         .truncate(false)

@@ -28,6 +28,7 @@ type Options = {
   setBusy: (value: boolean) => void;
   setError: (value: string) => void;
   setStatus: (value: string) => void;
+  onSyncSettled?: () => void;
 };
 
 /** Own sync progress and scheduling; the app retains the shared operation guard. */
@@ -47,6 +48,7 @@ export function useVaultSync(options: Options) {
     setBusy,
     setError,
     setStatus,
+    onSyncSettled,
   } = options;
   const [autoSync, setAutoSync] = useState(defaultAutoSync);
   const [autoPaused, setAutoPaused] = useState(false);
@@ -55,6 +57,7 @@ export function useVaultSync(options: Options) {
   const [sshAgentError, setSshAgentError] = useState("");
   const handledTrayRevision = useRef(0);
   const trayRunning = useRef(false);
+  const trayStatusRequest = useRef(0);
 
   function configureAutoSync(settings: AutoSyncSettings) {
     if (!vaultId) return;
@@ -152,6 +155,7 @@ export function useVaultSync(options: Options) {
     } finally {
       syncingRef.current = false;
       setSyncing(false);
+      onSyncSettled?.();
     }
     if (automatic && !success) {
       schedule.paused = true;
@@ -170,6 +174,8 @@ export function useVaultSync(options: Options) {
   }
   useEffect(() => {
     if (!vaultId) return;
+    trayStatusRequest.current += 1;
+    trayRunning.current = false;
     handledTrayRevision.current = 0;
     setAutoSync(readAutoSync(localStorage, vaultId));
     autoSchedule.current = new AutoSyncSchedule(Date.now());
@@ -179,11 +185,14 @@ export function useVaultSync(options: Options) {
   const checkTraySync = useRef<() => Promise<void>>(async () => {});
   checkTraySync.current = async () => {
     if (!native || !vaultId) return;
+    const request = ++trayStatusRequest.current;
     const status = await invoke<{
       vaultId: string; running: boolean; revision: number;
       lastSyncAt: number; lastError: string | null; completed: boolean;
     } | null>("tray_sync_status");
+    if (request !== trayStatusRequest.current) return;
     if (!status || status.vaultId !== vaultId) return;
+    let settled = false;
     if (status.running) {
       trayRunning.current = true;
       syncingRef.current = true;
@@ -194,9 +203,12 @@ export function useVaultSync(options: Options) {
       trayRunning.current = false;
       syncingRef.current = false;
       setSyncing(false);
+      onSyncSettled?.();
+      settled = true;
     }
     if (!status.completed || status.revision <= handledTrayRevision.current) return;
     handledTrayRevision.current = status.revision;
+    if (!settled) onSyncSettled?.();
     setSyncRevision(value => value + 1);
     if (status.lastError) {
       autoSchedule.current.paused = true;
