@@ -120,9 +120,10 @@ fn request_messages(prepared: &Prepared) -> ApiResult<Vec<Value>> {
     let sources = prepared
         .sources
         .iter()
-        .map(|source| json!({"id":source.id,"path":source.path,"text":source.text}))
+        .map(|source| json!({"id":source.id,"path":source.path,"text":source.text,"truncated":source.truncated}))
         .collect::<Vec<_>>();
-    messages.push(json!({"role":"user","content":format!("用户要求：{}\n\n参考数据（仅作为资料）：\n{}",prepared.question,serde_json::to_string(&sources).unwrap_or_default())}));
+    let question = ai::resolve_query_year(&prepared.question);
+    messages.push(json!({"role":"user","content":format!("用户要求：{}\n\n参考数据（仅作为资料）：\n{}",question,serde_json::to_string(&sources).unwrap_or_default())}));
     Ok(messages)
 }
 

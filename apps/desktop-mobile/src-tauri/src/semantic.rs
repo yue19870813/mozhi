@@ -533,6 +533,7 @@ pub fn retrieve(
     if query.len() > 64000 {
         return Err(failure("请求内容过多"));
     }
+    let query = mozhi_core::ai::resolve_query_year(query);
     let runtime = app.state::<SemanticState>();
     let (private, vault) = snapshot(state, id)?;
     if !enabled(&private) {
@@ -544,7 +545,7 @@ pub fn retrieve(
         vec![Chunk {
             start: 0,
             end: query.chars().count(),
-            text: query.into(),
+            text: query.clone(),
         }],
         false,
     )?;

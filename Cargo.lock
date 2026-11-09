@@ -2701,6 +2701,7 @@ dependencies = [
 name = "mozhi-core"
 version = "1.0.0"
 dependencies = [
+ "chrono",
  "fs2",
  "git2",
  "libssh2-sys",

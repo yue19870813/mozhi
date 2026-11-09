@@ -54,6 +54,9 @@ pub struct Source {
     pub truncated: bool,
 }
 pub fn context(vault: &Vault, paths: &[String]) -> Result<Vec<Source>> {
+    context_with_limit(vault, paths, 24_000)
+}
+fn context_with_limit(vault: &Vault, paths: &[String], per_note: usize) -> Result<Vec<Source>> {
     let mut sources = Vec::new();
     let mut seen = BTreeSet::new();
     let mut remaining = 24_000;
@@ -66,7 +69,7 @@ pub fn context(vault: &Vault, paths: &[String]) -> Result<Vec<Source>> {
         }
         let note = vault.read(path)?;
         let count = note.content.chars().count();
-        let text: String = note.content.chars().take(remaining.min(6000)).collect();
+        let text: String = note.content.chars().take(remaining.min(per_note)).collect();
         remaining -= text.chars().count();
         sources.push(Source {
             id: sources.len() + 1,
@@ -81,7 +84,10 @@ pub fn context(vault: &Vault, paths: &[String]) -> Result<Vec<Source>> {
 /// Interleave lexical and semantic notes, prioritizing explicit/lexical candidates.
 pub fn merge_context(mut lexical: Vec<Source>, semantic: Vec<Source>) -> Vec<Source> {
     for source in &mut lexical {
-        if let Some(hit) = semantic.iter().find(|hit| hit.path == source.path) {
+        if let Some(hit) = semantic
+            .iter()
+            .find(|hit| hit.path == source.path && source.truncated)
+        {
             *source = hit.clone();
         }
     }
@@ -117,15 +123,124 @@ pub fn query_context(
     mut selected: Vec<String>,
     semantic: Vec<Source>,
 ) -> Result<Vec<Source>> {
-    selected.extend(
-        index
-            .query(query, "")?
-            .hits
-            .into_iter()
-            .take(10)
-            .map(|hit| hit.path),
-    );
-    Ok(merge_context(context(vault, &selected)?, semantic))
+    let query = resolve_query_year(query);
+    selected.extend(target_paths(index, &query)?);
+    let mut sources = context(vault, &selected)?;
+    let mut remaining = 24_000
+        - sources
+            .iter()
+            .map(|s| s.text.chars().count())
+            .sum::<usize>();
+    if remaining == 0 || sources.len() == 10 {
+        return Ok(sources);
+    }
+    let candidates: Vec<_> = index
+        .query(&query, "")?
+        .hits
+        .into_iter()
+        .take(10)
+        .map(|hit| hit.path)
+        .filter(|path| !selected.contains(path))
+        .collect();
+    for mut source in merge_context(context_with_limit(vault, &candidates, 6000)?, semantic) {
+        if sources.iter().any(|s| s.path == source.path) || sources.len() == 10 || remaining == 0 {
+            continue;
+        }
+        let count = source.text.chars().count();
+        source.text = source.text.chars().take(remaining).collect();
+        source.truncated |= source.text.chars().count() < count;
+        remaining -= source.text.chars().count();
+        source.id = sources.len() + 1;
+        sources.push(source);
+    }
+    Ok(sources)
+}
+
+/// Resolve relative years using the user's local calendar, shared by retrieval and prompts.
+pub fn resolve_query_year(query: &str) -> String {
+    use chrono::Datelike;
+    resolve_year(query, chrono::Local::now().year())
+}
+fn resolve_year(query: &str, year: i32) -> String {
+    let mut resolved = query.to_owned();
+    for (relative, offset) in [
+        ("今年", 0),
+        ("去年", -1),
+        ("明年", 1),
+        ("this year", 0),
+        ("last year", -1),
+        ("next year", 1),
+    ] {
+        // Preserve the rest of the user's wording and support English capitalization.
+        while let Some(start) = resolved.to_ascii_lowercase().find(relative) {
+            let suffix = if relative.is_ascii() { "" } else { "年" };
+            resolved.replace_range(
+                start..start + relative.len(),
+                &format!("{}{suffix}", year + offset),
+            );
+        }
+    }
+    resolved
+}
+
+fn years(text: &str) -> BTreeSet<String> {
+    text.split(|c: char| !c.is_ascii_digit())
+        .filter(|part| {
+            part.len() == 4
+                && part
+                    .parse::<u32>()
+                    .is_ok_and(|y| (1900..=2199).contains(&y))
+        })
+        .map(str::to_owned)
+        .collect()
+}
+
+fn topic_grams(text: &str) -> BTreeSet<String> {
+    let chars: Vec<_> = text.to_lowercase().chars().collect();
+    chars
+        .windows(3)
+        .filter(|gram| {
+            gram.iter().all(|c| c.is_alphanumeric())
+                && gram.iter().any(|c| !c.is_ascii_digit() && *c != '年')
+        })
+        .map(|gram| gram.iter().collect())
+        .collect()
+}
+
+/// Match titles/paths independently of body search, which can rank incidental mentions first.
+fn target_paths(index: &crate::search::SearchIndex, query: &str) -> Result<Vec<String>> {
+    let query_years = years(query);
+    let grams = topic_grams(query);
+    let mut matches = Vec::new();
+    for note in index.knowledge()? {
+        let metadata = format!("{} {}", note.title, note.path.trim_end_matches(".md"));
+        let note_years = years(&metadata);
+        if query_years.len() == 1 && !note_years.is_empty() && note_years.is_disjoint(&query_years)
+        {
+            continue;
+        }
+        let overlap = topic_grams(&metadata).intersection(&grams).count();
+        if overlap == 0 {
+            continue;
+        }
+        let score = overlap
+            + if !note_years.is_disjoint(&query_years) {
+                4
+            } else {
+                0
+            };
+        matches.push((score, note.path));
+    }
+    matches.sort_by(|a, b| b.0.cmp(&a.0).then_with(|| a.1.cmp(&b.1)));
+    let best = matches.first().map(|m| m.0).unwrap_or(0);
+    let targets: Vec<_> = matches
+        .into_iter()
+        .take_while(|m| m.0 == best)
+        .take(4)
+        .map(|m| m.1)
+        .collect();
+    // A broad topic shared by many notes is not an explicit document target.
+    Ok(if targets.len() > 3 { vec![] } else { targets })
 }
 pub fn validate_sources(vault: &Vault, sources: &[Source]) -> Result<()> {
     for source in sources {
@@ -305,7 +420,9 @@ mod tests {
             content_hash: "hash".into(),
             truncated: false,
         };
-        let lexical = vec![source("a.md", "irrelevant start".into())];
+        let mut partial = source("a.md", "irrelevant start".into());
+        partial.truncated = true;
+        let lexical = vec![partial];
         let semantic = (0..20)
             .map(|i| source(if i == 0 { "a.md" } else { "b.md" }, "中".repeat(9000)))
             .collect();
@@ -438,7 +555,11 @@ mod tests {
                 .sum::<usize>(),
             24000
         );
-        assert!(sources.iter().all(|s| s.truncated));
+        assert_eq!(sources.len(), 4);
+        assert!(sources[..3]
+            .iter()
+            .all(|s| !s.truncated && s.text.chars().count() == 7000));
+        assert!(sources[3].truncated);
         fs::write(root.path().join("0.md"), "changed").unwrap();
         assert!(validate_sources(&vault, &sources).is_err());
         assert!(context(&vault, &["../outside.md".into()]).is_err());
@@ -504,6 +625,7 @@ mod tests {
             index.upsert(&path, &text).unwrap();
         }
         std::fs::write(root.path().join("unrelated.md"), "private unrelated").unwrap();
+        assert!(target_paths(&index, "Synthetic topic").unwrap().is_empty());
         let sources = query_context(&vault, &index, "Synthetic topic", vec![], vec![]).unwrap();
         assert!(sources.len() <= 10);
         assert!(
@@ -519,6 +641,112 @@ mod tests {
             query_context(&vault, &index, "unmatchedquery", vec![], vec![])
                 .unwrap()
                 .is_empty()
+        );
+    }
+    #[test]
+    fn relative_years_follow_the_supplied_local_year() {
+        assert_eq!(
+            resolve_year("我今年的读书计划，还有哪些没有看", 2026),
+            "我2026年的读书计划，还有哪些没有看"
+        );
+        assert_eq!(resolve_year("今年计划", 2027), "2027年计划");
+        assert_eq!(resolve_year("去年和明年", 2026), "2025年和2027年");
+        assert_eq!(
+            resolve_year("This year reading plan", 2026),
+            "2026 reading plan"
+        );
+        assert_eq!(resolve_year("2023年读书计划", 2026), "2023年读书计划");
+    }
+
+    #[test]
+    fn current_year_plan_is_prioritized_in_full_over_other_years_and_semantic_fragments() {
+        let root = tempfile::tempdir().unwrap();
+        let private = tempfile::tempdir().unwrap();
+        let vault = Vault::open(root.path(), private.path()).unwrap();
+        let mut index = crate::search::SearchIndex::open(&private.path().join("index.db")).unwrap();
+        let path = "读书计划/2026年读书计划.md";
+        fs::create_dir(root.path().join("读书计划")).unwrap();
+        let text = format!(
+            "# 2026年读书计划\n- [x] 已读\n{}\n- [ ] 尚未阅读的最后一本",
+            "计划说明\n".repeat(1600)
+        );
+        for (p, body) in [
+            (path, text.as_str()),
+            (
+                "读书计划/2025年读书计划.md",
+                "# 2025年读书计划\n- [ ] 旧年书籍",
+            ),
+            (
+                "读书计划/2027年读书计划.md",
+                "# 2027年读书计划\n- [ ] 明年书籍",
+            ),
+            ("其他.md", "# 读书随笔\n读书计划"),
+        ] {
+            fs::write(root.path().join(p), body).unwrap();
+            index.upsert(p, body).unwrap();
+        }
+        let semantic = vec![Source {
+            id: 1,
+            path: path.into(),
+            text: "- [x] 已读".into(),
+            content_hash: vault.read(path).unwrap().content_hash,
+            truncated: true,
+        }];
+        let query = resolve_year("我今年的读书计划，还有哪些没有看", 2026);
+        assert_eq!(target_paths(&index, &query).unwrap(), vec![path]);
+        assert_eq!(
+            target_paths(&index, &resolve_year("今年的读书计划", 2027)).unwrap(),
+            vec!["读书计划/2027年读书计划.md"]
+        );
+        let sources = query_context(&vault, &index, &query, vec![], semantic).unwrap();
+        assert_eq!(sources[0].path, path);
+        assert_eq!(sources[0].text, text);
+        assert!(!sources[0].truncated);
+        assert!(sources[0].text.contains("尚未阅读的最后一本"));
+        validate_sources(&vault, &sources).unwrap();
+    }
+
+    #[test]
+    fn manual_sources_keep_full_text_before_automatic_targets_and_respect_total_budget() {
+        let root = tempfile::tempdir().unwrap();
+        let private = tempfile::tempdir().unwrap();
+        let vault = Vault::open(root.path(), private.path()).unwrap();
+        let mut index = crate::search::SearchIndex::open(&private.path().join("index.db")).unwrap();
+        let text = format!("{}\n- [ ] 尾部未读", "中".repeat(9000));
+        fs::write(root.path().join("manual.md"), &text).unwrap();
+        let other = "# 2026年读书计划\n".to_owned() + &"中".repeat(25000);
+        fs::write(root.path().join("plan.md"), &other).unwrap();
+        index.upsert("plan.md", &other).unwrap();
+        let fragment = Source {
+            id: 9,
+            path: "manual.md".into(),
+            text: "片段".into(),
+            content_hash: vault.read("manual.md").unwrap().content_hash,
+            truncated: true,
+        };
+        let sources = query_context(
+            &vault,
+            &index,
+            "2026年读书计划",
+            vec!["manual.md".into()],
+            vec![fragment],
+        )
+        .unwrap();
+        assert_eq!(sources[0].path, "manual.md");
+        assert_eq!(sources[0].text, text);
+        assert!(!sources[0].truncated);
+        assert_eq!(sources[1].path, "plan.md");
+        assert!(sources[1].truncated);
+        assert_eq!(
+            sources
+                .iter()
+                .map(|s| s.text.chars().count())
+                .sum::<usize>(),
+            24000
+        );
+        assert!(sources.iter().enumerate().all(|(i, s)| s.id == i + 1));
+        assert!(
+            query_context(&vault, &index, "plan", vec!["../outside.md".into()], vec![]).is_err()
         );
     }
     #[test]
