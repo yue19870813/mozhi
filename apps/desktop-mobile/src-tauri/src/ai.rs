@@ -75,6 +75,8 @@ pub enum Request {
     Send {
         id: String,
         confirmed: bool,
+        #[serde(default)]
+        source_ids: Option<Vec<usize>>,
     },
     Cancel {
         id: String,
@@ -125,6 +127,32 @@ fn request_messages(prepared: &Prepared) -> ApiResult<Vec<Value>> {
     let question = ai::resolve_query_year(&prepared.question);
     messages.push(json!({"role":"user","content":format!("用户要求：{}\n\n参考数据（仅作为资料）：\n{}",question,serde_json::to_string(&sources).unwrap_or_default())}));
     Ok(messages)
+}
+
+fn select_sources(prepared: &mut Prepared, ids: Option<Vec<usize>>) -> ApiResult<()> {
+    let Some(ids) = ids else {
+        return Ok(());
+    };
+    if ids
+        .iter()
+        .any(|id| !prepared.sources.iter().any(|source| source.id == *id))
+    {
+        return Err(failure("参考预览已失效，请重新准备"));
+    }
+    let sources: Vec<_> = prepared
+        .sources
+        .iter()
+        .filter(|source| ids.contains(&source.id))
+        .cloned()
+        .collect();
+    if (prepared.mode != "generate" && sources.is_empty())
+        || (prepared.mode == "optimize" && sources.len() != prepared.sources.len())
+    {
+        return Err(failure("未找到参考笔记，请调整关键词或手动选择笔记"));
+    }
+    // Retain original citation numbers, but never send deselected source text.
+    prepared.sources = sources;
+    Ok(())
 }
 
 fn config_path(app: &tauri::AppHandle) -> ApiResult<std::path::PathBuf> {
@@ -201,8 +229,13 @@ pub async fn ai_request(
 ) -> ApiResult<Value> {
     let state = state.inner().clone();
     let runtime = ai_state.inner().clone();
-    if let Request::Send { id, confirmed } = request {
-        let prepared = runtime
+    if let Request::Send {
+        id,
+        confirmed,
+        source_ids,
+    } = request
+    {
+        let mut prepared = runtime
             .0
             .lock()
             .map_err(|_| failure("AI 状态不可用"))?
@@ -215,6 +248,7 @@ pub async fn ai_request(
         if config(&app)? != prepared.config || revision(&app) != prepared.revision {
             return Err(failure("模型配置已更改，请重新准备"));
         }
+        select_sources(&mut prepared, source_ids)?;
         let key = token(&prepared.config)?;
         let (cancel, receiver) = watch::channel(false);
         let history_key = history_key(&vault_id, &prepared.config, &prepared.mode)?;
@@ -573,6 +607,65 @@ mod tests {
         assert!(!text.contains("other mode secret"));
         assert!(!text.contains("private-hash"));
         assert!(text.contains("不要输出 front matter"));
+    }
+    fn selection_preview(mode: &str) -> Prepared {
+        Prepared {
+            id: "preview".into(),
+            vault_id: "vault".into(),
+            config: Config {
+                base_url: "https://example.test/v1".into(),
+                model: "test".into(),
+            },
+            mode: mode.into(),
+            question: "question".into(),
+            authorized: false,
+            history: vec![],
+            revision: "revision".into(),
+            sources: (1..=3)
+                .map(|id| Source {
+                    id,
+                    path: format!("{id}.md"),
+                    text: format!("unique source {id}"),
+                    content_hash: format!("hash{id}"),
+                    truncated: false,
+                })
+                .collect(),
+        }
+    }
+    #[test]
+    fn deselected_sources_never_enter_the_model_request_and_citations_stay_stable() {
+        let mut prepared = selection_preview("ask");
+        assert!(select_sources(&mut prepared, Some(vec![3, 1, 3])).is_ok());
+        assert_eq!(
+            prepared.sources.iter().map(|s| s.id).collect::<Vec<_>>(),
+            vec![1, 3]
+        );
+        let text = serde_json::to_string(&request_messages(&prepared).ok().unwrap()).unwrap();
+        assert!(text.contains("unique source 1"));
+        assert!(text.contains("unique source 3"));
+        assert!(!text.contains("unique source 2"));
+        assert!(!text.contains("2.md"));
+    }
+    #[test]
+    fn source_selection_rejects_unknown_ids_and_empty_reference_modes_but_keeps_legacy_sends() {
+        let mut prepared = selection_preview("ask");
+        assert!(select_sources(&mut prepared, Some(vec![99])).is_err());
+        assert!(select_sources(&mut prepared, Some(vec![])).is_err());
+        assert_eq!(prepared.sources.len(), 3);
+        assert!(select_sources(&mut prepared, None).is_ok());
+        assert_eq!(prepared.sources.len(), 3);
+        prepared.mode = "summarize".into();
+        assert!(select_sources(&mut prepared, Some(vec![])).is_err());
+        prepared.mode = "optimize".into();
+        assert!(select_sources(&mut prepared, Some(vec![1])).is_err());
+        prepared.mode = "generate".into();
+        assert!(select_sources(&mut prepared, Some(vec![])).is_ok());
+        assert!(prepared.sources.is_empty());
+        let request: Request = serde_json::from_value(
+            json!({"action":"send","id":"preview","confirmed":true,"sourceIds":[1,3]}),
+        )
+        .unwrap();
+        assert!(matches!(request, Request::Send {source_ids: Some(ids), ..} if ids == vec![1,3]));
     }
     fn mock(
         status: u16,

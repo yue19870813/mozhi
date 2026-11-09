@@ -313,6 +313,9 @@ summary { cursor:pointer; }
 .ai-preview { border-top:1px solid var(--border); padding-top:16px; }
 .ai-preview h2,.ai-message h2 { font-size:16px; overflow-wrap:anywhere; }
 .ai-preview p,.ai-preview summary { overflow-wrap:anywhere; }
+.ai-preview-source { display:flex; align-items:flex-start; gap:8px; margin:8px 0; }
+.ai-preview-source > input { flex:none; margin:4px 0 0; }
+.ai-preview-source > details { flex:1; min-width:0; }
 .ai-preview pre { font-size:12px; line-height:1.7; white-space:pre-wrap; overflow-wrap:anywhere; max-height:220px; overflow:auto; background:var(--panel); padding:12px; }
 .ai-message { padding:16px 0 24px; border-bottom:1px solid var(--border); }
 .ai-answer.markdown-preview { padding:0; overflow:visible; }
