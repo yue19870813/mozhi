@@ -4,15 +4,22 @@ export type Save = (note: Note, content: string) => Promise<{ note: Note; indexW
 export class DocumentSession {
   text: string;
   private pending: Promise<void> = Promise.resolve();
+  private writing = false;
   constructor(public note: Note, private save: Save, private warning: (message: string) => void = () => {}) { this.text = note.content; }
   get dirty() { return this.text !== this.note.content; }
+  get saving() { return this.writing; }
   flush(): Promise<void> {
     this.pending = this.pending.catch(() => {}).then(async () => {
       while (this.dirty) {
         const content = this.text;
-        const result = await this.save(this.note, content);
-        this.note = result.note;
-        if (result.indexWarning) this.warning(result.indexWarning);
+        this.writing = true;
+        try {
+          const result = await this.save(this.note, content);
+          this.note = result.note;
+          if (result.indexWarning) this.warning(result.indexWarning);
+        } finally {
+          this.writing = false;
+        }
       }
     });
     return this.pending;

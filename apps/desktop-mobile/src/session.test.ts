@@ -13,12 +13,14 @@ describe('autosave concurrency', () => {
     session.text = 'first';
     const first = session.flush();
     await new Promise(resolve => setTimeout(resolve, 0));
+    expect(session.saving).toBe(true);
     session.text = 'second';
     const second = session.flush();
     release();
     await Promise.all([first, second]);
     expect(calls).toEqual(['h0:first', 'h1:second']);
     expect(session.dirty).toBe(false);
+    expect(session.saving).toBe(false);
   });
   it('keeps the previous hash and current draft on conflict', async () => {
     const session = new DocumentSession({ path: 'a.md', content: 'disk', contentHash: 'h0' }, async () => { throw new Error('conflict'); });
@@ -27,5 +29,6 @@ describe('autosave concurrency', () => {
     expect(session.text).toBe('draft');
     expect(session.note.contentHash).toBe('h0');
     expect(session.dirty).toBe(true);
+    expect(session.saving).toBe(false);
   });
 });

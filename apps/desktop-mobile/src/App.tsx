@@ -11,7 +11,6 @@ import {
   useRef,
   useState,
 } from "react";
-import { listen } from "@tauri-apps/api/event";
 import { Menu } from "@tauri-apps/api/menu";
 import {
   api,
@@ -33,6 +32,7 @@ import { SyncPanel } from "./SyncPanel";
 import { useVaultSync } from "./useVaultSync";
 import { useNoteSearch } from "./useNoteSearch";
 import { useDocumentLifecycle } from "./useDocumentLifecycle";
+import { useVaultFileChanges } from "./useVaultFileChanges";
 import { useNoteDocument } from "./useNoteDocument";
 import { RecoveryPanel } from "./RecoveryPanel";
 import { VaultSettings } from "./VaultSettings";
@@ -741,80 +741,17 @@ export default function App() {
       void navigate(resolved);
     else setError(t("未找到链接目标：{0}", target));
   }
-  useEffect(() => {
-    if (!native || !vault) return;
-    let last = "";
-    let disposed = false;
-    let checking = false;
-    const timer = setInterval(async () => {
-      if (
-        document.hidden ||
-        syncingRef.current ||
-        operation.current ||
-        isComposing.current ||
-        checking
-      )
-        return;
-      checking = true;
-      try {
-        const fingerprint = await workspace<string>({ action: "fingerprint" });
-        if (disposed) return;
-        if (last && last !== fingerprint) {
-          if (session.current?.dirty) {
-            setError(
-              t("检测到外部文件修改。当前草稿已保留，请保存时协调版本。"),
-            );
-            return;
-          }
-          await run(reload);
-        }
-        last = fingerprint;
-      } catch (e) {
-        if (!disposed) setError(errorText(e));
-      } finally {
-        checking = false;
-      }
-    }, 5000);
-    return () => {
-      disposed = true;
-      clearInterval(timer);
-    };
-  }, [vault?.id]);
-  useEffect(() => {
-    if (!native || !vault) return;
-    let disposed = false;
-    let changed = false;
-    let stop: (() => void) | undefined;
-    listen<{ vaultId: string }>("vault_files_changed", (event) => {
-      if (event.payload.vaultId === vault.id) changed = true;
-    }).then((unlisten) => {
-      if (disposed) unlisten();
-      else stop = unlisten;
-    });
-    const timer = setInterval(() => {
-      if (
-        !changed ||
-        document.hidden ||
-        syncingRef.current ||
-        operation.current ||
-        isComposing.current
-      )
-        return;
-      if (session.current?.dirty) {
-        setError(
-          t("检测到外部文件变化，当前编辑内容不会被覆盖；保存时将核对版本。"),
-        );
-        return;
-      }
-      changed = false;
-      void run(reload);
-    }, 1000);
-    return () => {
-      disposed = true;
-      clearInterval(timer);
-      stop?.();
-    };
-  }, [vault?.id]);
+  useVaultFileChanges({
+    vaultId: vault?.id,
+    busy,
+    session,
+    operation,
+    syncingRef,
+    isComposing,
+    reload,
+    run,
+    setError,
+  });
   const title =
     current?.title ??
     content.match(/^# (.+)$/m)?.[1] ??
